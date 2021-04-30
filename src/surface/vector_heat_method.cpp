@@ -252,7 +252,7 @@ VectorHeatMethodSolver::transportTangentVectors(const std::vector<std::tuple<Sur
 }
 
 
-VertexData<Vector2> VectorHeatMethodSolver::computeLogMap(const Vertex& sourceVert, double vertexDistanceShift, double vertAngleRad) {
+VertexData<Vector2> VectorHeatMethodSolver::computeLogMap(const Vertex& sourceVert, double vertexDistanceShift, double vertAngleRad, bool invert) {
   geom.requireFaceAreas();
   geom.requireEdgeLengths();
   geom.requireCornerAngles();
@@ -326,7 +326,7 @@ VertexData<Vector2> VectorHeatMethodSolver::computeLogMap(const Vertex& sourceVe
   for (Vertex v : mesh.vertices()) {
     size_t vInd = geom.vertexIndices[v];
 
-    std::complex<double> logDir = radialSol[vInd] / horizontalSol[vInd];
+    std::complex<double> logDir = (invert) ? horizontalSol[vInd] / radialSol[vInd] : radialSol[vInd] / horizontalSol[vInd];
     Vector2 logCoord = Vector2::fromComplex(logDir) * distance[vInd];
     result[v] = logCoord;
   }
