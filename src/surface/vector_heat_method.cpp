@@ -267,8 +267,12 @@ VertexData<Vector2> VectorHeatMethodSolver::computeLogMap(const Vertex& sourceVe
 
   // Make sure systems have been built and factored
   ensureHaveVectorHeatSolver();
+
+  std::cout << "Heat solver exists" << std::endl;
+
   ensureHavePoissonSolver();
 
+  std::cout << "Poisson solver exists" << std::endl;
   std::cout << "All solvers verified to exist" << std::endl;
 
   // === Solve for "radial" field
