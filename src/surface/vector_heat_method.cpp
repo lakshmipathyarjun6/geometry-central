@@ -54,8 +54,19 @@ void VectorHeatMethodSolver::ensureHaveVectorHeatSolver() {
 
   std::cout << "Set square solver to laplacian" << std::endl;
 
+  SparseMatrix<std::complex<double>> mm = massMat.cast<std::complex<double>>();
+
   // Build the operator
-  SparseMatrix<std::complex<double>> vectorOp = massMat.cast<std::complex<double>>() + shortTime * Lconn;
+  SparseMatrix<std::complex<double>> vectorOp = mm + shortTime * Lconn;
+
+  checkFinite(Lconn);
+  std::cout << "Lconn is finite" << std::endl;
+
+  checkFinite(mm);
+  std::cout << "Mass matrix is finite" << std::endl;
+
+  checkFinite(vectorOp);
+  std::cout << "VectorOp is finite" << std::endl;
 
   std::cout << "Casted sparse matrix" << std::endl;
 
