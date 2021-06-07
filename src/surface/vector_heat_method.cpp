@@ -43,16 +43,30 @@ void VectorHeatMethodSolver::ensureHaveScalarHeatSolver() {
 void VectorHeatMethodSolver::ensureHaveVectorHeatSolver() {
   if (vectorHeatSolver != nullptr) return;
 
+  std::cout << "Heat solver not yet created" << std::endl;
+
   // Get the ingredients
   geom.requireVertexConnectionLaplacian();
+
+  std::cout << "Geom vertex laplacian required" << std::endl;
+
   SparseMatrix<std::complex<double>>& Lconn = geom.vertexConnectionLaplacian;
+
+  std::cout << "Set square solver to laplacian" << std::endl;
 
   // Build the operator
   SparseMatrix<std::complex<double>> vectorOp = massMat.cast<std::complex<double>>() + shortTime * Lconn;
+
+  std::cout << "Casted sparse matrix" << std::endl;
+
   vectorHeatSolver.reset(new SquareSolver<std::complex<double>>(vectorOp)); // not necessarily SPD without Delaunay
   // vectorHeatSolver.reset(new PositiveDefiniteSolver<std::complex<double>>(vectorOp));
 
+  std::cout << "Set heat solver" << std::endl;
+
   geom.unrequireVertexConnectionLaplacian();
+
+  std::cout << "Stop requiring laplacian" << std::endl;
 }
 
 
