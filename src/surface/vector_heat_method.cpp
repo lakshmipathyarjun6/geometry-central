@@ -253,6 +253,8 @@ VectorHeatMethodSolver::transportTangentVectors(const std::vector<std::tuple<Sur
 
 
 VertexData<Vector2> VectorHeatMethodSolver::computeLogMap(const Vertex& sourceVert, double vertexDistanceShift, double vertAngleRad, bool invert) {
+  std::cout << "Started" << std::endl;
+
   geom.requireFaceAreas();
   geom.requireEdgeLengths();
   geom.requireCornerAngles();
@@ -261,10 +263,13 @@ VertexData<Vector2> VectorHeatMethodSolver::computeLogMap(const Vertex& sourceVe
   geom.requireTransportVectorsAlongHalfedge();
   geom.requireVertexIndices();
 
+  std::cout << "All geoms done" << std::endl;
 
   // Make sure systems have been built and factored
   ensureHaveVectorHeatSolver();
   ensureHavePoissonSolver();
+
+  std::cout << "All solvers verified to exist" << std::endl;
 
   // === Solve for "radial" field
 
