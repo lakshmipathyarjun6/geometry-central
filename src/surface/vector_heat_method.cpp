@@ -275,6 +275,8 @@ VertexData<Vector2> VectorHeatMethodSolver::computeLogMap(const Vertex& sourceVe
   // Solve
   Vector<std::complex<double>> radialSol = vectorHeatSolver->solve(radialRHS);
 
+  std::cout << "Successfully computed radial solution" << std::endl;
+
   // Normalize
   radialSol = (radialSol.array() / radialSol.array().abs());
   radialSol[geom.vertexIndices[sourceVert]] = 0.;
@@ -288,6 +290,8 @@ VertexData<Vector2> VectorHeatMethodSolver::computeLogMap(const Vertex& sourceVe
 
   // Solve
   Vector<std::complex<double>> horizontalSol = vectorHeatSolver->solve(horizontalRHS);
+
+  std::cout << "Successfully computed horizontal solution" << std::endl;
 
   // Normalize
   horizontalSol = (horizontalSol.array() / horizontalSol.array().abs());
@@ -316,6 +320,8 @@ VertexData<Vector2> VectorHeatMethodSolver::computeLogMap(const Vertex& sourceVe
 
   // Integrate to get distance
   Vector<double> distance = poissonSolver->solve(divergenceVec);
+
+  std::cout << "Successfully integrated diververge field" << std::endl;
 
   // Shift distance to be zero at the source
   distance = distance.array() + (vertexDistanceShift - distance[geom.vertexIndices[sourceVert]]);
