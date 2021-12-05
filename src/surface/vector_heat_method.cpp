@@ -22,6 +22,7 @@ VectorHeatMethodSolver::VectorHeatMethodSolver(IntrinsicGeometryInterface& geom_
   massMat = geom.vertexLumpedMassMatrix;
 
   horizontalTangentVecs = VertexData<Vector2>(mesh);
+  radialTangentVecs = VertexData<Vector2>(mesh);
 
   geom.unrequireVertexLumpedMassMatrix();
   geom.unrequireEdgeLengths();
@@ -282,6 +283,10 @@ VertexData<Vector2> VectorHeatMethodSolver::computeLogMap(const Vertex& sourceVe
   radialSol = (radialSol.array() / radialSol.array().abs());
   radialSol[geom.vertexIndices[sourceVert]] = 0.;
 
+  for (Vertex v : mesh.vertices()) {
+    radialTangentVecs[v] = Vector2::fromComplex(radialSol[geom.vertexIndices[v]]);
+  }
+
 
   // === Solve for "horizontal" field
 
@@ -474,6 +479,7 @@ VertexData<Vector2> VectorHeatMethodSolver::computeLogMap(const SurfacePoint& so
 }
 
 VertexData<Vector2> VectorHeatMethodSolver::getHorizontalTangentVectors() { return horizontalTangentVecs; }
+VertexData<Vector2> VectorHeatMethodSolver::getRadialTangentVectors() { return radialTangentVecs; }
 
 } // namespace surface
 } // namespace geometrycentral

@@ -44,6 +44,7 @@ public:
   // VertexData<Vector2> computeLogMapIncrementalHorizontal(const Vertex& sourceVert, double vertAngleRad = 0.);
 
   VertexData<Vector2> getHorizontalTangentVectors();
+  VertexData<Vector2> getRadialTangentVectors();
 
 
   // === Options and parameters
@@ -69,6 +70,7 @@ private:
   SparseMatrix<double> massMat;
 
   VertexData<Vector2> horizontalTangentVecs;
+  VertexData<Vector2> radialTangentVecs;
 
   // Helpers
   void ensureHaveScalarHeatSolver();
