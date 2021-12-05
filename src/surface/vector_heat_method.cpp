@@ -21,6 +21,8 @@ VectorHeatMethodSolver::VectorHeatMethodSolver(IntrinsicGeometryInterface& geom_
   // We always want the mass matrix
   massMat = geom.vertexLumpedMassMatrix;
 
+  horizontalTangentVecs = VertexData<Vector2>(mesh);
+
   geom.unrequireVertexLumpedMassMatrix();
   geom.unrequireEdgeLengths();
 }
