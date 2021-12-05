@@ -43,7 +43,7 @@ public:
 
   // VertexData<Vector2> computeLogMapIncrementalHorizontal(const Vertex& sourceVert, double vertAngleRad = 0.);
 
-  VertexData<Vector2> getHorizontalTangentVectors();
+  void getHorizontalTangentVectors(VertexData<Vector2>& buffer);
 
 
   // === Options and parameters

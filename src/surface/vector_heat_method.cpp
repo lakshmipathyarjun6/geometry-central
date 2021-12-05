@@ -473,7 +473,11 @@ VertexData<Vector2> VectorHeatMethodSolver::computeLogMap(const SurfacePoint& so
   return VertexData<Vector2>();
 }
 
-VertexData<Vector2> VectorHeatMethodSolver::getHorizontalTangentVectors() { return horizontalTangentVecs; }
+void VectorHeatMethodSolver::getHorizontalTangentVectors(VertexData<Vector2>& buffer) {
+  for (Vertex v : mesh.vertices()) {
+    buffer[v] = horizontalTangentVecs[v];
+  }
+}
 
 } // namespace surface
 } // namespace geometrycentral
