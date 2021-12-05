@@ -21,6 +21,9 @@ VectorHeatMethodSolver::VectorHeatMethodSolver(IntrinsicGeometryInterface& geom_
   // We always want the mass matrix
   massMat = geom.vertexLumpedMassMatrix;
 
+  horizontalTangentVecs = VertexData<Vector2>(mesh);
+  radialTangentVecs = VertexData<Vector2>(mesh);
+
   geom.unrequireVertexLumpedMassMatrix();
   geom.unrequireEdgeLengths();
 }
@@ -252,7 +255,8 @@ VectorHeatMethodSolver::transportTangentVectors(const std::vector<std::tuple<Sur
 }
 
 
-VertexData<Vector2> VectorHeatMethodSolver::computeLogMap(const Vertex& sourceVert, double vertexDistanceShift, double vertAngleRad, bool invert) {
+VertexData<Vector2> VectorHeatMethodSolver::computeLogMap(const Vertex& sourceVert, double vertexDistanceShift,
+                                                          double vertAngleRad, bool invert) {
   geom.requireFaceAreas();
   geom.requireEdgeLengths();
   geom.requireCornerAngles();
@@ -273,7 +277,7 @@ VertexData<Vector2> VectorHeatMethodSolver::computeLogMap(const Vertex& sourceVe
   addVertexOutwardBall(sourceVert, radialRHS);
 
   // Solve
-  Vector<std::complex<double>> radialSol = vectorHeatSolver->solve(radialRHS);
+  radialSol = vectorHeatSolver->solve(radialRHS);
 
   // Normalize
   radialSol = (radialSol.array() / radialSol.array().abs());
@@ -287,7 +291,7 @@ VertexData<Vector2> VectorHeatMethodSolver::computeLogMap(const Vertex& sourceVe
   horizontalRHS[geom.vertexIndices[sourceVert]] = -1.0 * (cos(vertAngleRad) + sin(vertAngleRad) * 1i);
 
   // Solve
-  Vector<std::complex<double>> horizontalSol = vectorHeatSolver->solve(horizontalRHS);
+  horizontalSol = vectorHeatSolver->solve(horizontalRHS);
 
   // Normalize
   horizontalSol = (horizontalSol.array() / horizontalSol.array().abs());
@@ -315,7 +319,7 @@ VertexData<Vector2> VectorHeatMethodSolver::computeLogMap(const Vertex& sourceVe
   }
 
   // Integrate to get distance
-  Vector<double> distance = poissonSolver->solve(divergenceVec);
+  distance = poissonSolver->solve(divergenceVec);
 
   // Shift distance to be zero at the source
   distance = distance.array() + (vertexDistanceShift - distance[geom.vertexIndices[sourceVert]]);
@@ -326,9 +330,13 @@ VertexData<Vector2> VectorHeatMethodSolver::computeLogMap(const Vertex& sourceVe
   for (Vertex v : mesh.vertices()) {
     size_t vInd = geom.vertexIndices[v];
 
-    std::complex<double> logDir = (invert) ? horizontalSol[vInd] / radialSol[vInd] : radialSol[vInd] / horizontalSol[vInd];
+    std::complex<double> logDir =
+        (invert) ? horizontalSol[vInd] / radialSol[vInd] : radialSol[vInd] / horizontalSol[vInd];
     Vector2 logCoord = Vector2::fromComplex(logDir) * distance[vInd];
     result[v] = logCoord;
+
+    radialTangentVecs[v] = Vector2::fromComplex(radialSol[geom.vertexIndices[v]]);
+    horizontalTangentVecs[v] = Vector2::fromComplex(horizontalSol[geom.vertexIndices[v]]);
   }
 
   return result;
@@ -464,6 +472,63 @@ VertexData<Vector2> VectorHeatMethodSolver::computeLogMap(const SurfacePoint& so
   throw std::logic_error("bad switch");
   return VertexData<Vector2>();
 }
+
+VertexData<Vector2> VectorHeatMethodSolver::computeLogMapIncrementalRadial(const Vertex& sourceVert, bool invert) {
+  // Build rhs
+  Vector<std::complex<double>> radialRHS = Vector<std::complex<double>>::Zero(mesh.nVertices());
+  addVertexOutwardBall(sourceVert, radialRHS);
+
+  // Solve
+  radialSol = vectorHeatSolver->solve(radialRHS);
+
+  // Normalize
+  radialSol = (radialSol.array() / radialSol.array().abs());
+  radialSol[geom.vertexIndices[sourceVert]] = 0.;
+
+  VertexData<Vector2> result(mesh);
+  for (Vertex v : mesh.vertices()) {
+    size_t vInd = geom.vertexIndices[v];
+
+    std::complex<double> logDir =
+        (invert) ? horizontalSol[vInd] / radialSol[vInd] : radialSol[vInd] / horizontalSol[vInd];
+    Vector2 logCoord = Vector2::fromComplex(logDir) * distance[vInd];
+    result[v] = logCoord;
+
+    radialTangentVecs[v] = Vector2::fromComplex(radialSol[geom.vertexIndices[v]]);
+  }
+
+  return result;
+}
+
+VertexData<Vector2> VectorHeatMethodSolver::computeLogMapIncrementalHorizontal(const Vertex& sourceVert,
+                                                                               double vertAngleRad, bool invert) {
+  // Build rhs
+  Vector<std::complex<double>> horizontalRHS = Vector<std::complex<double>>::Zero(mesh.nVertices());
+  horizontalRHS[geom.vertexIndices[sourceVert]] = -1.0 * std::complex<double>(cos(vertAngleRad), sin(vertAngleRad));
+
+  // Solve
+  horizontalSol = vectorHeatSolver->solve(horizontalRHS);
+
+  // Normalize
+  horizontalSol = (horizontalSol.array() / horizontalSol.array().abs());
+
+  VertexData<Vector2> result(mesh);
+  for (Vertex v : mesh.vertices()) {
+    size_t vInd = geom.vertexIndices[v];
+
+    std::complex<double> logDir =
+        (invert) ? horizontalSol[vInd] / radialSol[vInd] : radialSol[vInd] / horizontalSol[vInd];
+    Vector2 logCoord = Vector2::fromComplex(logDir) * distance[vInd];
+    result[v] = logCoord;
+
+    horizontalTangentVecs[v] = Vector2::fromComplex(horizontalSol[geom.vertexIndices[v]]);
+  }
+
+  return result;
+}
+
+VertexData<Vector2> VectorHeatMethodSolver::getHorizontalTangentVectors() { return horizontalTangentVecs; }
+VertexData<Vector2> VectorHeatMethodSolver::getRadialTangentVectors() { return radialTangentVecs; }
 
 } // namespace surface
 } // namespace geometrycentral

@@ -1,9 +1,9 @@
 #pragma once
 
 #include "geometrycentral/numerical/linear_solvers.h"
-#include "geometrycentral/surface/surface_mesh.h"
 #include "geometrycentral/surface/heat_method_distance.h"
 #include "geometrycentral/surface/intrinsic_geometry_interface.h"
+#include "geometrycentral/surface/surface_mesh.h"
 #include "geometrycentral/surface/surface_point.h"
 #include "geometrycentral/utilities/vector2.h"
 #include "geometrycentral/utilities/vector3.h"
@@ -37,8 +37,16 @@ public:
 
 
   // === The Logarithmic map
-  VertexData<Vector2> computeLogMap(const Vertex& sourceVert, double vertexDistanceShift = 0., double vertAngleRad = 0., bool invert = false);
+  VertexData<Vector2> computeLogMap(const Vertex& sourceVert, double vertexDistanceShift = 0., double vertAngleRad = 0.,
+                                    bool invert = false);
   VertexData<Vector2> computeLogMap(const SurfacePoint& sourceP);
+
+  VertexData<Vector2> computeLogMapIncrementalRadial(const Vertex& sourceVert, bool invert = false);
+  VertexData<Vector2> computeLogMapIncrementalHorizontal(const Vertex& sourceVert, double vertAngleRad = 0.,
+                                                         bool invert = false);
+
+  VertexData<Vector2> getHorizontalTangentVectors();
+  VertexData<Vector2> getRadialTangentVectors();
 
 
   // === Options and parameters
@@ -62,6 +70,13 @@ private:
   std::unique_ptr<LinearSolver<std::complex<double>>> vectorHeatSolver;
   std::unique_ptr<PositiveDefiniteSolver<double>> poissonSolver;
   SparseMatrix<double> massMat;
+
+  Vector<std::complex<double>> radialSol;
+  Vector<std::complex<double>> horizontalSol;
+
+  VertexData<Vector2> radialTangentVecs;
+  VertexData<Vector2> horizontalTangentVecs;
+  Vector<double> distance;
 
   // Helpers
   void ensureHaveScalarHeatSolver();
