@@ -283,10 +283,6 @@ VertexData<Vector2> VectorHeatMethodSolver::computeLogMap(const Vertex& sourceVe
   radialSol = (radialSol.array() / radialSol.array().abs());
   radialSol[geom.vertexIndices[sourceVert]] = 0.;
 
-  // for (Vertex v : mesh.vertices()) {
-  //   radialTangentVecs[v] = Vector2::fromComplex(radialSol[geom.vertexIndices[v]]);
-  // }
-
 
   // === Solve for "horizontal" field
 
@@ -299,10 +295,6 @@ VertexData<Vector2> VectorHeatMethodSolver::computeLogMap(const Vertex& sourceVe
 
   // Normalize
   horizontalSol = (horizontalSol.array() / horizontalSol.array().abs());
-
-  // for (Vertex v : mesh.vertices()) {
-  //   horizontalTangentVecs[v] = Vector2::fromComplex(horizontalSol[geom.vertexIndices[v]]);
-  // }
 
 
   // === Integrate radial field to get distance
@@ -479,6 +471,33 @@ VertexData<Vector2> VectorHeatMethodSolver::computeLogMap(const SurfacePoint& so
 
   throw std::logic_error("bad switch");
   return VertexData<Vector2>();
+}
+
+VertexData<Vector2> VectorHeatMethodSolver::computeLogMapIncrementalRadial(const Vertex& sourceVert, bool invert) {
+  // Build rhs
+  Vector<std::complex<double>> radialRHS = Vector<std::complex<double>>::Zero(mesh.nVertices());
+  addVertexOutwardBall(sourceVert, radialRHS);
+
+  // Solve
+  radialSol = vectorHeatSolver->solve(radialRHS);
+
+  // Normalize
+  radialSol = (radialSol.array() / radialSol.array().abs());
+  radialSol[geom.vertexIndices[sourceVert]] = 0.;
+
+  VertexData<Vector2> result(mesh);
+  for (Vertex v : mesh.vertices()) {
+    size_t vInd = geom.vertexIndices[v];
+
+    std::complex<double> logDir =
+        (invert) ? horizontalSol[vInd] / radialSol[vInd] : radialSol[vInd] / horizontalSol[vInd];
+    Vector2 logCoord = Vector2::fromComplex(logDir) * distance[vInd];
+    result[v] = logCoord;
+
+    radialTangentVecs[v] = Vector2::fromComplex(radialSol[geom.vertexIndices[v]]);
+  }
+
+  return result;
 }
 
 VertexData<Vector2> VectorHeatMethodSolver::computeLogMapIncrementalHorizontal(const Vertex& sourceVert,
