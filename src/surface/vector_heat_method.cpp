@@ -283,9 +283,9 @@ VertexData<Vector2> VectorHeatMethodSolver::computeLogMap(const Vertex& sourceVe
   radialSol = (radialSol.array() / radialSol.array().abs());
   radialSol[geom.vertexIndices[sourceVert]] = 0.;
 
-  for (Vertex v : mesh.vertices()) {
-    radialTangentVecs[v] = Vector2::fromComplex(radialSol[geom.vertexIndices[v]]);
-  }
+  // for (Vertex v : mesh.vertices()) {
+  //   radialTangentVecs[v] = Vector2::fromComplex(radialSol[geom.vertexIndices[v]]);
+  // }
 
 
   // === Solve for "horizontal" field
@@ -300,9 +300,9 @@ VertexData<Vector2> VectorHeatMethodSolver::computeLogMap(const Vertex& sourceVe
   // Normalize
   horizontalSol = (horizontalSol.array() / horizontalSol.array().abs());
 
-  for (Vertex v : mesh.vertices()) {
-    horizontalTangentVecs[v] = Vector2::fromComplex(horizontalSol[geom.vertexIndices[v]]);
-  }
+  // for (Vertex v : mesh.vertices()) {
+  //   horizontalTangentVecs[v] = Vector2::fromComplex(horizontalSol[geom.vertexIndices[v]]);
+  // }
 
 
   // === Integrate radial field to get distance
@@ -342,6 +342,9 @@ VertexData<Vector2> VectorHeatMethodSolver::computeLogMap(const Vertex& sourceVe
         (invert) ? horizontalSol[vInd] / radialSol[vInd] : radialSol[vInd] / horizontalSol[vInd];
     Vector2 logCoord = Vector2::fromComplex(logDir) * distance[vInd];
     result[v] = logCoord;
+
+    radialTangentVecs[v] = Vector2::fromComplex(radialSol[geom.vertexIndices[v]]);
+    horizontalTangentVecs[v] = Vector2::fromComplex(horizontalSol[geom.vertexIndices[v]]);
   }
 
   return result;
@@ -498,6 +501,8 @@ VertexData<Vector2> VectorHeatMethodSolver::computeLogMapIncrementalHorizontal(c
         (invert) ? horizontalSol[vInd] / radialSol[vInd] : radialSol[vInd] / horizontalSol[vInd];
     Vector2 logCoord = Vector2::fromComplex(logDir) * distance[vInd];
     result[v] = logCoord;
+
+    horizontalTangentVecs[v] = Vector2::fromComplex(horizontalSol[geom.vertexIndices[v]]);
   }
 
   return result;
