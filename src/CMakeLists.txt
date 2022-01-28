@@ -148,7 +148,10 @@ target_link_libraries(geometry-central PUBLIC ${GC_DEP_LIBS})
 
 # Set compiler properties for the library
 set_property(TARGET geometry-central PROPERTY CXX_STANDARD 11)
-set_property(TARGET geometry-central PROPERTY CXX_STANDARD_REQUIRED TRUE)
+set_target_properties(geometry-central PROPERTIES
+  CXX_STANDARD_REQUIRED TRUE
+  POSITION_INDEPENDENT_CODE ON
+)
 target_compile_definitions(geometry-central PUBLIC NOMINMAX _USE_MATH_DEFINES)
 
 # Define CMAKE flag used in these sources (but should be kept OUT of headers)
