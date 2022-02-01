@@ -31,13 +31,16 @@ readManifoldSurfaceMesh(std::istream& in, std::string type);
 std::tuple<std::unique_ptr<ManifoldSurfaceMesh>, std::unique_ptr<VertexPositionGeometry>,
            std::unique_ptr<CornerData<Vector2>>>
 readParameterizedManifoldSurfaceMesh(std::string filename, std::string type = "");
-std::tuple<std::unique_ptr<SurfaceMesh>, std::unique_ptr<VertexPositionGeometry>,
-           std::unique_ptr<CornerData<Vector2>>>
+std::tuple<std::unique_ptr<SurfaceMesh>, std::unique_ptr<VertexPositionGeometry>, std::unique_ptr<CornerData<Vector2>>>
 readParameterizedSurfaceMesh(std::string filename, std::string type = "");
 
 // Legacy method, prefer one of the variants above
 std::tuple<std::unique_ptr<ManifoldSurfaceMesh>, std::unique_ptr<VertexPositionGeometry>>
 loadMesh(std::string filename, std::string type = "");
+
+// Load mesh data from arbitrary source providing raw geometry information
+std::tuple<std::unique_ptr<ManifoldSurfaceMesh>, std::unique_ptr<VertexPositionGeometry>>
+loadMesh(std::vector<std::vector<size_t>>& polygons, std::vector<Vector3>& vertexCoordinates);
 
 
 // Write a surface mesh
