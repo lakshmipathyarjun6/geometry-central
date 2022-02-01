@@ -61,6 +61,16 @@ std::tuple<std::unique_ptr<ManifoldSurfaceMesh>, std::unique_ptr<VertexPositionG
   return readManifoldSurfaceMesh(filename, type);
 }
 
+std::tuple<std::unique_ptr<ManifoldSurfaceMesh>, std::unique_ptr<VertexPositionGeometry>>
+loadMesh(std::vector<std::vector<size_t>>& polygons, std::vector<Vector3>& vertexCoordinates) {
+  std::string loadType = "custom";
+  SimplePolygonMesh simpleMesh(polygons, vertexCoordinates);
+  processLoadedMesh(simpleMesh, loadType);
+  auto lvals = makeManifoldSurfaceMeshAndGeometry(simpleMesh.polygons, simpleMesh.vertexCoordinates);
+  return std::tuple<std::unique_ptr<ManifoldSurfaceMesh>,
+                    std::unique_ptr<VertexPositionGeometry>>(std::move(std::get<0>(lvals)),  // mesh
+                                                             std::move(std::get<1>(lvals))); // geometry
+}
 
 // Load a general surface mesh, which might or might not be manifold
 std::tuple<std::unique_ptr<SurfaceMesh>, std::unique_ptr<VertexPositionGeometry>> readSurfaceMesh(std::string filename,
