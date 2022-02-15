@@ -288,7 +288,7 @@ VertexData<Vector2> VectorHeatMethodSolver::computeLogMap(const Vertex& sourceVe
 
   // Build rhs
   Vector<std::complex<double>> horizontalRHS = Vector<std::complex<double>>::Zero(mesh.nVertices());
-  horizontalRHS[geom.vertexIndices[sourceVert]] = -1.0 * (cos(vertAngleRad) + sin(vertAngleRad) * 1i);
+  horizontalRHS[geom.vertexIndices[sourceVert]] = -1.0 * std::complex<double>(cos(vertAngleRad), sin(vertAngleRad));
 
   // Solve
   horizontalSol = vectorHeatSolver->solve(horizontalRHS);
