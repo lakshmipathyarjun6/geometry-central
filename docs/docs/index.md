@@ -37,6 +37,16 @@ for(Vertex v : mesh->vertices()) {
 
 For more, see the [tutorials](/tutorials/load_mesh). To get started with the code, see [building](/build/building). Use the [sample project](https://github.com/nmwsharp/gc-polyscope-project-template/) to get started with a build system and a gui.
 
+A introductory talk on geometry-central was given at SGP 2020, check it out to get started: [www.youtube.com/watch?v=mw5Xz9CFZ7A](https://www.youtube.com/watch?v=mw5Xz9CFZ7A)
+
+
+**Bindings & Plugins:**
+
+- **Python:** [Potpourri3d](https://github.com/nmwsharp/potpourri3d)
+- **Grasshopper/Rhino:** [Lionfish](https://www.food4rhino.com/app/lion-fish) by Math Whittaker
+
+If you're interested in creating additional bindings/plugins, feel free to reach out!
+
 
 **Related alternatives:** 
 [CGAL](https://www.cgal.org/),

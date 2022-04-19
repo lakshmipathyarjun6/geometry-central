@@ -17,19 +17,28 @@ SET(SRCS
   surface/rich_surface_mesh_data.cpp
 
   surface/base_geometry_interface.cpp
+  surface/boundary_first_flattening.cpp
   surface/intrinsic_geometry_interface.cpp
   surface/extrinsic_geometry_interface.cpp
+  surface/exact_geodesic_helpers.cpp
+  surface/exact_geodesics.cpp
   surface/embedded_geometry_interface.cpp
   surface/edge_length_geometry.cpp
   surface/vertex_position_geometry.cpp
+  surface/mutation_manager.cpp
+  surface/mesh_graph_algorithms.cpp
   surface/direction_fields.cpp
   surface/heat_method_distance.cpp
   surface/vector_heat_method.cpp
+  surface/geodesic_centroidal_voronoi_tessellation.cpp
   surface/trace_geodesic.cpp
+  surface/normal_coordinates.cpp
   surface/surface_centers.cpp
-  surface/signpost_intrinsic_triangulation.cpp
   surface/simple_idt.cpp
-  surface/mesh_graph_algorithms.cpp
+  surface/intrinsic_triangulation.cpp
+  surface/signpost_intrinsic_triangulation.cpp
+  surface/integer_coordinates_intrinsic_triangulation.cpp
+  surface/common_subdivision.cpp
   surface/surface_point.cpp
   surface/fast_marching_method.cpp
   surface/uniformize.cpp
@@ -40,6 +49,9 @@ SET(SRCS
   surface/intrinsic_mollification.cpp
   surface/tufted_laplacian.cpp
   surface/flip_geodesics.cpp
+  surface/transfer_functions.cpp
+  surface/quadric_error_simplification.cpp
+  surface/subdivide.cpp
   #surface/detect_symmetry.cpp
   #surface/mesh_ray_tracer.cpp
   
@@ -78,14 +90,19 @@ SET(HEADERS
   ${INCLUDE_ROOT}/surface/barycentric_coordinate_helpers.h
   ${INCLUDE_ROOT}/surface/barycentric_coordinate_helpers.ipp
   ${INCLUDE_ROOT}/surface/base_geometry_interface.h
+  ${INCLUDE_ROOT}/surface/boundary_first_flattening.h
   ${INCLUDE_ROOT}/surface/detect_symmetry.h
   ${INCLUDE_ROOT}/surface/direction_fields.h
   ${INCLUDE_ROOT}/surface/edge_length_geometry.h
   ${INCLUDE_ROOT}/surface/edge_length_geometry.ipp
   ${INCLUDE_ROOT}/surface/embedded_geometry_interface.h
+  ${INCLUDE_ROOT}/surface/exact_geodesics.h
+  ${INCLUDE_ROOT}/surface/exact_geodesic_helpers.h
+  ${INCLUDE_ROOT}/surface/exact_geodesic_helpers.ipp
   ${INCLUDE_ROOT}/surface/exact_polyhedral_geodesics.h
   ${INCLUDE_ROOT}/surface/extrinsic_geometry_interface.h
   ${INCLUDE_ROOT}/surface/fast_marching_method.h
+  ${INCLUDE_ROOT}/surface/geodesic_centroidal_voronoi_tessellation.h
   ${INCLUDE_ROOT}/surface/halfedge_element_types.h
   ${INCLUDE_ROOT}/surface/halfedge_element_types.ipp
   ${INCLUDE_ROOT}/surface/halfedge_factories.h
@@ -99,6 +116,7 @@ SET(HEADERS
   ${INCLUDE_ROOT}/surface/mesh_graph_algorithms.h
   ${INCLUDE_ROOT}/surface/mesh_ray_tracer.h
   ${INCLUDE_ROOT}/surface/parameterize.h
+  ${INCLUDE_ROOT}/surface/quadric_error_simplification.h
   ${INCLUDE_ROOT}/surface/rich_surface_mesh_data.h
   ${INCLUDE_ROOT}/surface/rich_surface_mesh_data.ipp
   ${INCLUDE_ROOT}/surface/polygon_soup_mesh.h
@@ -106,6 +124,7 @@ SET(HEADERS
   ${INCLUDE_ROOT}/surface/signpost_intrinsic_triangulation.ipp
   ${INCLUDE_ROOT}/surface/simple_idt.h
   ${INCLUDE_ROOT}/surface/simple_polygon_mesh.h
+  ${INCLUDE_ROOT}/surface/subdivide.h
   ${INCLUDE_ROOT}/surface/surface_centers.h
   ${INCLUDE_ROOT}/surface/surface_mesh.h
   ${INCLUDE_ROOT}/surface/surface_mesh.ipp
@@ -113,6 +132,7 @@ SET(HEADERS
   ${INCLUDE_ROOT}/surface/surface_point.ipp
   ${INCLUDE_ROOT}/surface/surgery.h
   ${INCLUDE_ROOT}/surface/trace_geodesic.h
+  ${INCLUDE_ROOT}/surface/transfer_functions.h
   ${INCLUDE_ROOT}/surface/uniformize.h
   ${INCLUDE_ROOT}/surface/vector_heat_method.h
   ${INCLUDE_ROOT}/surface/vertex_position_geometry.h
