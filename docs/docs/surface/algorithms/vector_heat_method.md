@@ -13,7 +13,7 @@ The stateful class `VectorHeatSolver` shares precomputation for all of the routi
 
 ??? func "`#!cpp VectorHeatSolver::VectorHeatSolver(IntrinsicGeometryInterface& geom, double tCoef=1.0)`"
 
-    Create a new solver for the Vector Heat Method. Precomputation is perfrmed lazily as needed.
+    Create a new solver for the Vector Heat Method. Precomputation is performed lazily as needed.
 
     - `geom` is the geometry (and hence mesh) on which to compute. Note that nearly any geometry object (`VertexPositionGeometry`, etc) can be passed here.
 
@@ -35,7 +35,7 @@ VertexPositionGeometry geometry;
 SurfaceMesh mesh;
 
 // construct a solver
-VectorHeatSolver vhmSolver(geometry);
+VectorHeatMethodSolver vhmSolver(geometry);
 
 // some interesting source values
 std::vector<std::tuple<Vertex, double>> points;

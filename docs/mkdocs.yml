@@ -75,12 +75,20 @@ nav:
     - Algorithms: 
       - 'Direction Fields' : 'surface/algorithms/direction_fields.md'
       - 'Geodesic Distance' : 'surface/algorithms/geodesic_distance.md'
+      - 'Tracing Geodesic Paths' : 'surface/algorithms/geodesic_paths.md'
       - 'Vector Heat Method' : 'surface/algorithms/vector_heat_method.md'
       - 'Surface Centers' : 'surface/algorithms/surface_centers.md'
+      - 'Geodesic Centroidal Voronoi Tessellations' : 'surface/algorithms/geodesic_voronoi_tessellations.md'
       - 'Mesh Graph Algorithms' : 'surface/algorithms/mesh_graph_algorithms.md'
-      - 'Intrinsic Triangulations' : 'surface/algorithms/intrinsic_triangulations.md'
       - 'Robust Geometry' : 'surface/algorithms/robust_geometry.md'
       - 'Flip Geodesics' : 'surface/algorithms/flip_geodesics.md'
+      - 'Parameterization' : 'surface/algorithms/parameterization.md'
+    - Intrinsic Triangulations:
+      - 'Basics' : 'surface/intrinsic_triangulations/basics.md'
+      - 'Common Subdivision' : 'surface/intrinsic_triangulations/common_subdivision.md'
+      - 'Signposts' : 'surface/intrinsic_triangulations/signposts.md'
+      - 'Integer Coordinates' : 'surface/intrinsic_triangulations/integer_coordinates.md'
+      - 'Function Transfer' : 'surface/intrinsic_triangulations/function_transfer.md'
   - Point Cloud:
     - 'Basics' : 'pointcloud/basics.md'
     - 'Geometry' : 'pointcloud/geometry.md'

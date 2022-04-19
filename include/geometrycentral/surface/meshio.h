@@ -61,13 +61,18 @@ class WavefrontOBJ {
 public:
   static bool write(std::string filename, EmbeddedGeometryInterface& geometry);
   static bool write(std::string filename, EmbeddedGeometryInterface& geometry, CornerData<Vector2>& texcoords);
+  static bool write(std::string filename, EmbeddedGeometryInterface& geometry, CornerData<Vector3>& normals);
+  static bool write(std::string filename, EmbeddedGeometryInterface& geometry, CornerData<Vector2>& texcoords,
+                    CornerData<Vector3>& normals);
 
 protected:
   static bool openStream(std::ofstream& out, std::string filename);
   static void writeHeader(std::ofstream& out, EmbeddedGeometryInterface& geometry);
   static void writeVertices(std::ofstream& out, EmbeddedGeometryInterface& geometry);
   static void writeTexCoords(std::ofstream& out, EmbeddedGeometryInterface& geometry, CornerData<Vector2>& texcoords);
-  static void writeFaces(std::ofstream& out, EmbeddedGeometryInterface& geometry, bool useTexCoords = false);
+  static void writeNormals(std::ofstream& out, EmbeddedGeometryInterface& geometry, CornerData<Vector3>& normals);
+  static void writeFaces(std::ofstream& out, EmbeddedGeometryInterface& geometry, bool useTexCoords = false,
+                         bool useNormals = false);
 };
 
 
