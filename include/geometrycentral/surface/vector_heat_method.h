@@ -48,7 +48,7 @@ public:
 
   VertexData<Vector2> getHorizontalTangentVectors();
   VertexData<Vector2> getRadialTangentVectors();
-
+  Vector<std::complex<double>> getCartesianCoordinates();
 
   // === Options and parameters
   const double tCoef; // the time parameter used for heat flow, measured as time = tCoef * mean_edge_length^2
@@ -82,7 +82,9 @@ private:
 
   VertexData<Vector2> radialTangentVecs;
   VertexData<Vector2> horizontalTangentVecs;
+  
   Vector<double> distance;
+  Vector<double> angles; // in range 0 to 2pi
 
   // Helpers
   void ensureHaveScalarHeatSolver();
