@@ -24,6 +24,9 @@ VectorHeatMethodSolver::VectorHeatMethodSolver(IntrinsicGeometryInterface& geom_
   horizontalTangentVecs = VertexData<Vector2>(mesh);
   radialTangentVecs = VertexData<Vector2>(mesh);
 
+  distance = Vector<double>::Zero(mesh.nVertices());
+  angles = Vector<double>::Zero(mesh.nVertices());
+
   geom.unrequireVertexLumpedMassMatrix();
   geom.unrequireEdgeLengths();
 }
