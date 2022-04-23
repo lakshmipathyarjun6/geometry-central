@@ -351,14 +351,15 @@ VertexData<Vector2> VectorHeatMethodSolver::computeLogMap(const Vertex& sourceVe
 
     std::complex<double> logDir =
         (invert) ? horizontalSol[vInd] / radialSol[vInd] : radialSol[vInd] / horizontalSol[vInd];
-    Vector2 ld = Vector2::fromComplex(logDir);
+    // Vector2 ld = Vector2::fromComplex(logDir);
 
-    double resAngRad = atan2(ld[1], ld[0]);
-    double resAngRadCorrected = (resAngRad < 0) ? 2 * M_PI + resAngRad : resAngRad;
+    // double resAngRad = atan2(ld[1], ld[0]);
+    // double resAngRadCorrected = (resAngRad < 0) ? 2 * M_PI + resAngRad : resAngRad;
 
-    angles[vInd] = resAngRadCorrected;
+    // angles[vInd] = resAngRadCorrected;
 
-    Vector2 logCoord = ld * distance[vInd];
+    // Vector2 logCoord = ld * distance[vInd];
+    Vector2 logCoord = Vector2::fromComplex(logDir) * distance[vInd];
     result[v] = logCoord;
 
     radialTangentVecs[v] = Vector2::fromComplex(radialSol[geom.vertexIndices[v]]);
