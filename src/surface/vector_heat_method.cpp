@@ -568,12 +568,13 @@ VertexData<Vector2> VectorHeatMethodSolver::computeLogMapIncrementalHorizontal(c
   return result;
 }
 
-Vector<Vector2> VectorHeatMethodSolver::getCartesianCoordinates() {
-  Vector<Vector2> result;
+Vector<std::complex<double>> VectorHeatMethodSolver::getCartesianCoordinates() {
+  Vector<std::complex<double>> result = Vector<std::complex<double>>::Zero(mesh.nVertices());
   int numElements = distance.size();
 
   for (int i = 0; i < numElements; i++) {
-    result[i] = Vector2{distance[i], angles[i]};
+    std::complex<double> coords(distance[i], angles[i]);
+    result[i] = coords;
   }
 
   return result;
