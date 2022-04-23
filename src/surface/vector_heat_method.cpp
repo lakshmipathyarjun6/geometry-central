@@ -348,7 +348,14 @@ VertexData<Vector2> VectorHeatMethodSolver::computeLogMap(const Vertex& sourceVe
 
     std::complex<double> logDir =
         (invert) ? horizontalSol[vInd] / radialSol[vInd] : radialSol[vInd] / horizontalSol[vInd];
-    Vector2 logCoord = Vector2::fromComplex(logDir) * distance[vInd];
+    Vector2 ld = Vector2::fromComplex(logDir);
+
+    double resAngRad = atan2(ld[1], ld[0]);
+    double resAngRadCorrected = (resAngRad < 0) ? 2 * M_PI + resAngRad : resAngRad;
+
+    angles[vInd] = resAngRadCorrected;
+
+    Vector2 logCoord = ld * distance[vInd];
     result[v] = logCoord;
 
     radialTangentVecs[v] = Vector2::fromComplex(radialSol[geom.vertexIndices[v]]);
@@ -553,6 +560,17 @@ VertexData<Vector2> VectorHeatMethodSolver::computeLogMapIncrementalHorizontal(c
     result[v] = logCoord;
 
     horizontalTangentVecs[v] = Vector2::fromComplex(horizontalSol[geom.vertexIndices[v]]);
+  }
+
+  return result;
+}
+
+Vector<Vector2> VectorHeatMethodSolver::getCartesianCoordinates() {
+  Vector<Vector2> result;
+  int numElements = distance.size();
+
+  for (int i = 0; i < numElements; i++) {
+    result[i] = Vector2{distance[i], angles[i]};
   }
 
   return result;
