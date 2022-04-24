@@ -1,4 +1,5 @@
 #include "geometrycentral/surface/vector_heat_method.h"
+#include <cmath>
 
 namespace geometrycentral {
 namespace surface {
@@ -26,6 +27,9 @@ VectorHeatMethodSolver::VectorHeatMethodSolver(IntrinsicGeometryInterface& geom_
 
   geom.unrequireVertexLumpedMassMatrix();
   geom.unrequireEdgeLengths();
+
+  distance = Vector<double>::Zero(mesh.nVertices());
+  angles = Vector<double>::Zero(mesh.nVertices());
 }
 
 
@@ -348,6 +352,10 @@ VertexData<Vector2> VectorHeatMethodSolver::computeLogMap(const Vertex& sourceVe
 
     std::complex<double> logDir =
         (invert) ? horizontalSol[vInd] / radialSol[vInd] : radialSol[vInd] / horizontalSol[vInd];
+
+    double angleRaw = atan2(logDir.imag(), logDir.real());
+    angles[vInd] = (angleRaw < 0) ? angleRaw + 2 * M_PI : angleRaw;
+
     Vector2 logCoord = Vector2::fromComplex(logDir) * distance[vInd];
     result[v] = logCoord;
 
@@ -553,6 +561,20 @@ VertexData<Vector2> VectorHeatMethodSolver::computeLogMapIncrementalHorizontal(c
     result[v] = logCoord;
 
     horizontalTangentVecs[v] = Vector2::fromComplex(horizontalSol[geom.vertexIndices[v]]);
+  }
+
+  return result;
+}
+
+std::vector<Vector2> VectorHeatMethodSolver::getCartesianCoords() {
+  std::vector<Vector2> result;
+
+  for (int i = 0; i < mesh.nVertices(); i++) {
+    double dist = distance[i];
+    double angle = angles[i];
+    Vector2 coord = Vector2{dist, angle};
+
+    result.push_back(coord);
   }
 
   return result;

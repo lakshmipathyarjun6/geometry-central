@@ -48,6 +48,7 @@ public:
 
   VertexData<Vector2> getHorizontalTangentVectors();
   VertexData<Vector2> getRadialTangentVectors();
+  std::vector<Vector2> getCartesianCoords();
 
 
   // === Options and parameters
@@ -82,7 +83,9 @@ private:
 
   VertexData<Vector2> radialTangentVecs;
   VertexData<Vector2> horizontalTangentVecs;
+
   Vector<double> distance;
+  Vector<double> angles;
 
   // Helpers
   void ensureHaveScalarHeatSolver();
