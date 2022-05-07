@@ -38,6 +38,10 @@ public:
 
   void translate(const Vertex& newStartVertex);
 
+  void setPatchAxis(const std::vector<SurfacePoint>& axis);
+
+  void setPatchBoundary(const std::vector<SurfacePoint>& boundary);
+
 private:
   std::complex<double> axisTangent(size_t idx, const std::vector<SurfacePoint>& axis);
 

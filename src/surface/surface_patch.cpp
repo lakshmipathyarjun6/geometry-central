@@ -57,6 +57,7 @@ void SurfacePatch::createDefaultAxis() {
 
   m_patchAxisSparse = paths[0];
   constructDenselySampledAxis();
+  computeAxisAnglesAndDistances();
 }
 
 void SurfacePatch::get(std::vector<SurfacePoint>& axis, std::vector<SurfacePoint>& boundary) {
@@ -150,6 +151,15 @@ void SurfacePatch::transfer(SurfacePatch* target, const Vertex& targetMeshStart,
 }
 
 void SurfacePatch::translate(const Vertex& newStartVertex) {}
+
+void SurfacePatch::setPatchAxis(const std::vector<SurfacePoint>& axis) {
+  m_patchAxisSparse = axis;
+  constructDenselySampledAxis();
+  computeAxisAnglesAndDistances();
+}
+
+void SurfacePatch::setPatchBoundary(const std::vector<SurfacePoint>& boundary) { m_patchBoundary = boundary; }
+
 
 // Begin private utils
 
@@ -295,6 +305,8 @@ std::vector<SurfacePoint> SurfacePatch::connectPointsWithGeodesic(const SurfaceP
  * the original curve in the dense curve vector.
  */
 void SurfacePatch::constructDenselySampledAxis() {
+  m_patchAxisDense.clear();
+  m_patchAxisSparseDenseIdx.clear();
 
   std::vector<SurfacePoint> denseCurve;
   std::vector<size_t> idxIntoDense(m_patchAxisSparse.size());
