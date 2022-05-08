@@ -91,9 +91,16 @@ void SurfacePatch::transfer(SurfacePatch* target, const Vertex& targetMeshStart,
   target->m_patchAxisDense.emplace_back(SurfacePoint(targetMeshStart));
   target->m_patchAxisSparseDenseIdx.push_back(0);
 
+  // All angles and distances should be the same, save for the first one
+  // target->m_patchAxisSparseAngles.push_back(initDir);
+  target->m_patchAxisSparseAngles.insert(target->m_patchAxisSparseAngles.end(), m_patchAxisSparseAngles.begin(),
+                                         m_patchAxisSparseAngles.end());
+  target->m_patchAxisSparseDistances.insert(target->m_patchAxisSparseDistances.end(),
+                                            m_patchAxisSparseDistances.begin(), m_patchAxisSparseDistances.end());
+
   initDir /= initDir.norm();
   tracedGeodesic = traceGeodesic(*(target->m_geometry), target->m_patchAxisSparse[0],
-                                 Vector2::fromComplex(initDir * m_patchAxisSparseDistances[0]), traceOptions);
+                                 Vector2::fromComplex(initDir * target->m_patchAxisSparseDistances[0]), traceOptions);
 
   pathEndpoint = tracedGeodesic.endPoint;
   target->m_patchAxisDense.insert(target->m_patchAxisDense.end(), tracedGeodesic.pathPoints.begin() + 1,
@@ -106,11 +113,11 @@ void SurfacePatch::transfer(SurfacePatch* target, const Vertex& targetMeshStart,
   for (size_t i = 1; i < N - 1; i++) {
     // Get the corresponding direction on S2
     endingDir /= std::abs(endingDir);
-    std::complex<double> adjustedDirS2 = endingDir * m_patchAxisSparseAngles[i];
+    std::complex<double> adjustedDirS2 = endingDir * target->m_patchAxisSparseAngles[i];
     adjustedDirS2 /= std::abs(adjustedDirS2); // make sure direction is unit
 
     // Trace geodesic from last point and record where it ended up
-    double dist = m_patchAxisSparseDistances[i];
+    double dist = target->m_patchAxisSparseDistances[i];
     tracedGeodesic =
         traceGeodesic(*(target->m_geometry), target->m_patchAxisSparse[target->m_patchAxisSparse.size() - 1],
                       Vector2::fromComplex(adjustedDirS2 * dist), traceOptions);
@@ -133,7 +140,7 @@ void SurfacePatch::transfer(SurfacePatch* target, const Vertex& targetMeshStart,
   TraceGeodesicResult targetTracedGeodesic;
   std::vector<SurfacePoint> transferredBoundary(m_patchBoundary.size());
 
-  for (size_t i = 0; i < m_patchBoundary.size(); i++) {
+  for (size_t i = 0; i < bdyPtToParam.size(); i++) {
     params p = bdyPtToParam[i];
     std::complex<double> dir = p.dir;
     std::complex<double> axisBasis =
@@ -144,7 +151,7 @@ void SurfacePatch::transfer(SurfacePatch* target, const Vertex& targetMeshStart,
     targetTracedGeodesic =
         traceGeodesic(*(target->m_geometry), target->m_patchAxisSparse[p.cp], Vector2::fromComplex(p.dist * dir));
     targetPathEndpoint = targetTracedGeodesic.endPoint;
-    transferredBoundary.push_back(targetPathEndpoint);
+    transferredBoundary[i] = targetPathEndpoint;
   }
 
   target->m_patchBoundary = transferredBoundary;
@@ -197,6 +204,7 @@ std::vector<params> SurfacePatch::closestPointAndDirection() {
   VertexData<double> closestPoint = m_vectorHeatSolver->extendScalar(zippedDistances);
 
   std::vector<params> bdyPtToParam(m_patchBoundary.size());
+
   for (size_t i = 0; i < m_patchBoundary.size(); i++) {
     SurfacePoint bdyPoint = m_patchBoundary[i];
     double diffusedVal = evaluateVertexDataAtPoint(closestPoint, bdyPoint);
@@ -212,8 +220,8 @@ std::vector<params> SurfacePatch::closestPointAndDirection() {
     dir = dir / axisBasis;
     double heatDist = evaluateVertexDataAtPoint(distToSource, bdyPoint);
     // TODO: Also try log map dist
-    params prms = {cp, heatDist, dir};
-    bdyPtToParam.emplace_back(prms);
+    params prms = {cp, heatDist, -dir};
+    bdyPtToParam[i] = prms;
   }
 
   return bdyPtToParam;
@@ -257,6 +265,7 @@ void SurfacePatch::computeAxisAnglesAndDistances() {
 
     double totalDist = 0;
     SurfacePoint pt1, pt2;
+
     for (size_t j = currIdx; j < m_patchAxisSparseDenseIdx[mod(i + 1, N)]; j++) {
       pt1 = m_patchAxisDense[j];
       pt2 = m_patchAxisDense[j + 1];
@@ -268,6 +277,7 @@ void SurfacePatch::computeAxisAnglesAndDistances() {
 
     origDir = localDir(currNode, nextNode);
     offsetDir = localDir(currNode, prevNode);
+
     // CCW angle of rotation to get to next tangent vector; for convex corners, rotation is CCW (and angle is
     // positive), CW for non-convex corners (angle is negative).
     adjustedDir = origDir / offsetDir;
@@ -313,11 +323,10 @@ void SurfacePatch::constructDenselySampledAxis() {
 
   size_t currIdx = 0;
   size_t N = m_patchAxisSparse.size();
-  size_t end = N - 1;
 
   SurfacePoint pt1, pt2;
 
-  for (size_t i = 0; i < end; i++) {
+  for (size_t i = 0; i < N; i++) {
     pt1 = m_patchAxisSparse[i];
     pt2 = m_patchAxisSparse[mod(i + 1, N)];
     denseCurve.push_back(pt1);
