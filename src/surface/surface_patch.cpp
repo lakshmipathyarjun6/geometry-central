@@ -75,10 +75,12 @@ void SurfacePatch::reparameterizeBoundary() {
 
   VertexData<double> distToSource = m_distanceHeatSolver->computeDistance(m_patchAxisSparse);
 
+  std::cout << m_patchBoundary.size() << std::endl;
+
   // Do closest point interpolation.
 
   std::vector<std::tuple<SurfacePoint, double>> zippedDistances; // distances along curve
-  zippedDistances.push_back(std::make_tuple(m_patchAxisSparse[0], 0));
+  zippedDistances.push_back(std::make_tuple(m_startPoint, 0));
   double totalDist = 0;
   for (size_t i = 0; i < m_patchAxisSparse.size() - 1; i++) {
     SurfacePoint pt2 = m_patchAxisSparse[i + 1];
@@ -140,6 +142,7 @@ void SurfacePatch::transfer(SurfacePatch* target, const Vertex& targetMeshStart,
 
   // Compute distances and directions on S1, then reconstruct contact on S2
   target->reconstructBoundaryWithParams(m_parameterizedBoundary);
+  // target->reparameterizeBoundary();
 }
 
 void SurfacePatch::translate(const Vertex& newStartVertex, Vector2 initDir) {
@@ -485,7 +488,7 @@ void SurfacePatch::traceAxis() {
 
   // Trace out from first to second point
   m_initDir /= m_initDir.norm();
-  tracedGeodesic = traceGeodesic(*(m_geometry), m_patchAxisSparse[0],
+  tracedGeodesic = traceGeodesic(*(m_geometry), m_startPoint,
                                  Vector2::fromComplex(m_initDir * m_patchAxisSparseDistances[0]), traceOptions);
 
   pathEndpoint = tracedGeodesic.endPoint;
