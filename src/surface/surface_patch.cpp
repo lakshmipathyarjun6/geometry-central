@@ -56,6 +56,7 @@ void SurfacePatch::createDefaultAxis() {
   std::vector<std::vector<SurfacePoint>> paths = edgeNetwork->getPathPolyline();
 
   m_patchAxisSparse = paths[0];
+  m_startPoint = m_patchAxisSparse[0];
   constructDenselySampledAxis();
   computeAxisAnglesAndDistances();
 }
@@ -64,6 +65,8 @@ void SurfacePatch::get(std::vector<SurfacePoint>& axis, std::vector<SurfacePoint
   axis = m_patchAxisSparse;
   boundary = m_patchBoundary;
 }
+
+Vector2 SurfacePatch::getInitDir() { return m_initDir; }
 
 void SurfacePatch::reconstructBoundary() { reconstructBoundaryWithParams(m_parameterizedBoundary); }
 
@@ -118,7 +121,10 @@ void SurfacePatch::reparameterizeBoundary() {
   m_parameterizedBoundary.insert(m_parameterizedBoundary.begin(), bdyPtToParam.begin(), bdyPtToParam.end());
 }
 
-void SurfacePatch::rotateAxis(Vector2 newDir) { traceAxis(m_patchAxisSparse[0], newDir); }
+void SurfacePatch::rotateAxis(Vector2 newDir) {
+  m_initDir = newDir;
+  traceAxis();
+}
 
 void SurfacePatch::transfer(SurfacePatch* target, const Vertex& targetMeshStart, Vector2 initDir) {
   // All angles and distances should be the same, save for the first one (which is ignored)
@@ -127,16 +133,24 @@ void SurfacePatch::transfer(SurfacePatch* target, const Vertex& targetMeshStart,
   target->m_patchAxisSparseDistances.insert(target->m_patchAxisSparseDistances.end(),
                                             m_patchAxisSparseDistances.begin(), m_patchAxisSparseDistances.end());
 
-  target->traceAxis(SurfacePoint(targetMeshStart), initDir);
+  target->m_startPoint = SurfacePoint(targetMeshStart);
+  target->m_initDir = initDir;
+
+  target->traceAxis();
 
   // Compute distances and directions on S1, then reconstruct contact on S2
   target->reconstructBoundaryWithParams(m_parameterizedBoundary);
 }
 
-void SurfacePatch::translate(const Vertex& newStartVertex) {}
+void SurfacePatch::translate(const Vertex& newStartVertex, Vector2 initDir) {
+  m_startPoint = SurfacePoint(newStartVertex);
+  m_initDir = initDir;
+  traceAxis();
+}
 
 void SurfacePatch::setPatchAxis(const std::vector<SurfacePoint>& axis) {
   m_patchAxisSparse = axis;
+  m_startPoint = m_patchAxisSparse[0];
   constructDenselySampledAxis();
   computeAxisAnglesAndDistances();
 }
@@ -214,6 +228,8 @@ void SurfacePatch::computeAxisAnglesAndDistances() {
     adjustedDir = origDir / offsetDir;
     angles[i] = adjustedDir;
   }
+
+  m_initDir = Vector2::fromComplex(angles[0]);
 
   m_patchAxisSparseAngles = angles;
   m_patchAxisSparseDistances = distances;
@@ -448,15 +464,15 @@ void SurfacePatch::reconstructBoundaryWithParams(const std::vector<params>& bdyP
   m_patchBoundary.insert(m_patchBoundary.begin(), constructedBoundary.begin(), constructedBoundary.end());
 }
 
-void SurfacePatch::traceAxis(const SurfacePoint& start, Vector2 initDir) {
+void SurfacePatch::traceAxis() {
   // Clear all existing data
   m_patchAxisSparse.clear();
   m_patchAxisSparseDenseIdx.clear();
   m_patchAxisDense.clear();
 
   // Place first points
-  m_patchAxisSparse.emplace_back(start);
-  m_patchAxisDense.emplace_back(start);
+  m_patchAxisSparse.emplace_back(m_startPoint);
+  m_patchAxisDense.emplace_back(m_startPoint);
   m_patchAxisSparseDenseIdx.push_back(0);
 
   // Declare some variables
@@ -468,9 +484,9 @@ void SurfacePatch::traceAxis(const SurfacePoint& start, Vector2 initDir) {
   traceOptions.includePath = true;
 
   // Trace out from first to second point
-  initDir /= initDir.norm();
+  m_initDir /= m_initDir.norm();
   tracedGeodesic = traceGeodesic(*(m_geometry), m_patchAxisSparse[0],
-                                 Vector2::fromComplex(initDir * m_patchAxisSparseDistances[0]), traceOptions);
+                                 Vector2::fromComplex(m_initDir * m_patchAxisSparseDistances[0]), traceOptions);
 
   pathEndpoint = tracedGeodesic.endPoint;
   m_patchAxisDense.insert(m_patchAxisDense.end(), tracedGeodesic.pathPoints.begin() + 1,
