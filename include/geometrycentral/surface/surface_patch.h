@@ -32,6 +32,8 @@ public:
 
   void get(std::vector<SurfacePoint>& axis, std::vector<SurfacePoint>& boundary);
 
+  Vector2 getInitDir();
+
   void reconstructBoundary();
 
   void reparameterizeBoundary();
@@ -40,7 +42,7 @@ public:
 
   void transfer(SurfacePatch* target, const Vertex& targetMeshStart, Vector2 initDir);
 
-  void translate(const Vertex& newStartVertex);
+  void translate(const Vertex& newStartVertex, Vector2 initDir);
 
   void setPatchAxis(const std::vector<SurfacePoint>& axis);
 
@@ -66,7 +68,7 @@ private:
 
   void reconstructBoundaryWithParams(const std::vector<params>& bdyPtToParam);
 
-  void traceAxis(const SurfacePoint& start, Vector2 initDir);
+  void traceAxis();
 
   std::unique_ptr<ManifoldSurfaceMesh> m_mesh;
   std::unique_ptr<VertexPositionGeometry> m_geometry;
@@ -82,4 +84,7 @@ private:
 
   std::vector<params> m_parameterizedBoundary;
   std::vector<SurfacePoint> m_patchBoundary;
+
+  SurfacePoint m_startPoint;
+  Vector2 m_initDir;
 };
