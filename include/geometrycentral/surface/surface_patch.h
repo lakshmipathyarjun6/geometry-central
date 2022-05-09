@@ -32,7 +32,11 @@ public:
 
   void get(std::vector<SurfacePoint>& axis, std::vector<SurfacePoint>& boundary);
 
-  void rotate(double angle);
+  void reconstructBoundary();
+
+  void reparameterizeBoundary();
+
+  void rotateAxis(Vector2 newDir);
 
   void transfer(SurfacePatch* target, const Vertex& targetMeshStart, Vector2 initDir);
 
@@ -44,8 +48,6 @@ public:
 
 private:
   std::complex<double> axisTangent(size_t idx, const std::vector<SurfacePoint>& axis);
-
-  std::vector<params> closestPointAndDirection();
 
   void computeAxisAnglesAndDistances();
 
@@ -62,6 +64,10 @@ private:
 
   Vector2 localDir(const SurfacePoint& pt1, const SurfacePoint& pt2);
 
+  void reconstructBoundaryWithParams(const std::vector<params>& bdyPtToParam);
+
+  void traceAxis(const SurfacePoint& start, Vector2 initDir);
+
   std::unique_ptr<ManifoldSurfaceMesh> m_mesh;
   std::unique_ptr<VertexPositionGeometry> m_geometry;
   std::unique_ptr<HeatMethodDistanceSolver> m_distanceHeatSolver;
@@ -74,5 +80,6 @@ private:
 
   std::vector<SurfacePoint> m_patchAxisDense;
 
+  std::vector<params> m_parameterizedBoundary;
   std::vector<SurfacePoint> m_patchBoundary;
 };
