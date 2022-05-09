@@ -142,7 +142,6 @@ void SurfacePatch::transfer(SurfacePatch* target, const Vertex& targetMeshStart,
 
   // Compute distances and directions on S1, then reconstruct contact on S2
   target->reconstructBoundaryWithParams(m_parameterizedBoundary);
-  // target->reparameterizeBoundary();
 }
 
 void SurfacePatch::translate(const Vertex& newStartVertex, Vector2 initDir) {
