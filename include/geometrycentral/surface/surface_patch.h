@@ -72,8 +72,6 @@ private:
 
   Vector2 localDir(const SurfacePoint& pt1, const SurfacePoint& pt2);
 
-  void reconstructBoundaryWithParams(const std::vector<params>& bdyPtToParam);
-
   void traceAxis();
 
   std::unique_ptr<ManifoldSurfaceMesh> m_mesh;
