@@ -512,60 +512,6 @@ VertexData<Vector2> VectorHeatMethodSolver::computeLogMap(const SurfacePoint& so
   return VertexData<Vector2>();
 }
 
-VertexData<Vector2> VectorHeatMethodSolver::computeLogMapIncrementalRadial(const Vertex& sourceVert, bool invert) {
-  // Build rhs
-  Vector<std::complex<double>> radialRHS = Vector<std::complex<double>>::Zero(mesh.nVertices());
-  addVertexOutwardBall(sourceVert, radialRHS);
-
-  // Solve
-  radialSol = vectorHeatSolver->solve(radialRHS);
-
-  // Normalize
-  radialSol = (radialSol.array() / radialSol.array().abs());
-  radialSol[geom.vertexIndices[sourceVert]] = 0.;
-
-  VertexData<Vector2> result(mesh);
-  for (Vertex v : mesh.vertices()) {
-    size_t vInd = geom.vertexIndices[v];
-
-    std::complex<double> logDir =
-        (invert) ? horizontalSol[vInd] / radialSol[vInd] : radialSol[vInd] / horizontalSol[vInd];
-    Vector2 logCoord = Vector2::fromComplex(logDir) * distance[vInd];
-    result[v] = logCoord;
-
-    radialTangentVecs[v] = Vector2::fromComplex(radialSol[geom.vertexIndices[v]]);
-  }
-
-  return result;
-}
-
-VertexData<Vector2> VectorHeatMethodSolver::computeLogMapIncrementalHorizontal(const Vertex& sourceVert,
-                                                                               double vertAngleRad, bool invert) {
-  // Build rhs
-  Vector<std::complex<double>> horizontalRHS = Vector<std::complex<double>>::Zero(mesh.nVertices());
-  horizontalRHS[geom.vertexIndices[sourceVert]] = -1.0 * std::complex<double>(cos(vertAngleRad), sin(vertAngleRad));
-
-  // Solve
-  horizontalSol = vectorHeatSolver->solve(horizontalRHS);
-
-  // Normalize
-  horizontalSol = (horizontalSol.array() / horizontalSol.array().abs());
-
-  VertexData<Vector2> result(mesh);
-  for (Vertex v : mesh.vertices()) {
-    size_t vInd = geom.vertexIndices[v];
-
-    std::complex<double> logDir =
-        (invert) ? horizontalSol[vInd] / radialSol[vInd] : radialSol[vInd] / horizontalSol[vInd];
-    Vector2 logCoord = Vector2::fromComplex(logDir) * distance[vInd];
-    result[v] = logCoord;
-
-    horizontalTangentVecs[v] = Vector2::fromComplex(horizontalSol[geom.vertexIndices[v]]);
-  }
-
-  return result;
-}
-
 std::vector<Vector2> VectorHeatMethodSolver::getCartesianCoords() {
   std::vector<Vector2> result;
 

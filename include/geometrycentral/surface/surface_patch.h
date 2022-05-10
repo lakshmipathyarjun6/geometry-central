@@ -28,6 +28,10 @@ public:
   SurfacePatch(ManifoldSurfaceMesh* mesh, VertexPositionGeometry* geometry,
                HeatMethodDistanceSolver* distanceHeatSolver, VectorHeatMethodSolver* vectorHeatSolver);
 
+  void computeGlobalAxisTransport();
+
+  void computeInitialAxisDirection();
+
   void createDefaultAxis();
 
   void get(std::vector<SurfacePoint>& axis, std::vector<SurfacePoint>& boundary);
@@ -46,9 +50,9 @@ public:
 
   void rotateAxis(Vector2 newDir);
 
-  void transfer(SurfacePatch* target, const Vertex& targetMeshStart, Vector2 initDir);
+  void transfer(SurfacePatch* target, const Vertex& targetMeshStart);
 
-  void translate(const Vertex& newStartVertex, Vector2 initDir);
+  void translate(const Vertex& newStartVertex);
 
   void setPatchAxis(const std::vector<SurfacePoint>& axis);
 
@@ -84,6 +88,7 @@ private:
   std::vector<double> m_patchAxisSparseDistances;
   std::vector<size_t> m_patchAxisSparseDenseIdx;
 
+  VertexData<Vector2> m_axisDirectionTable;
   std::vector<SurfacePoint> m_patchAxisDense;
 
   std::vector<params> m_parameterizedBoundary;

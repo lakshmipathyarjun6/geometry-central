@@ -42,10 +42,6 @@ public:
                                     bool invert = false);
   VertexData<Vector2> computeLogMap(const SurfacePoint& sourceP);
 
-  VertexData<Vector2> computeLogMapIncrementalRadial(const Vertex& sourceVert, bool invert = false);
-  VertexData<Vector2> computeLogMapIncrementalHorizontal(const Vertex& sourceVert, double vertAngleRad = 0.,
-                                                         bool invert = false);
-
   VertexData<Vector2> getHorizontalTangentVectors();
   VertexData<Vector2> getRadialTangentVectors();
   std::vector<Vector2> getCartesianCoords();

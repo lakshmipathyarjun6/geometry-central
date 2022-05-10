@@ -12,6 +12,41 @@ SurfacePatch::SurfacePatch(ManifoldSurfaceMesh* mesh, VertexPositionGeometry* ge
 }
 
 /*
+ * To support smooth translation, parallel transport the base initial direction to all vertices.
+ * Table can be referenced during drag, but should be recomputed at start.
+ */
+void SurfacePatch::computeGlobalAxisTransport() {
+  Vertex startVertex = m_startPoint.nearestVertex();
+  m_axisDirectionTable = m_vectorHeatSolver->transportTangentVector(startVertex, m_initDir);
+}
+
+/*
+ * The start direction should be determined using the global direction between the first two points
+ * but in the tangent basis of the first point.  It can subsequently be overridden by user input via rotation.
+ */
+void SurfacePatch::computeInitialAxisDirection() {
+  m_geometry->requireVertexNormals();
+  m_geometry->requireVertexTangentBasis();
+
+  SurfacePoint firstPoint = m_patchAxisSparse[0];
+  SurfacePoint secondPoint = m_patchAxisSparse[1];
+
+  Vector3 globalDir =
+      m_geometry->inputVertexPositions[secondPoint.vertex] - m_geometry->inputVertexPositions[firstPoint.vertex];
+  globalDir /= globalDir.norm();
+
+  Vector3 vertexNormal = m_geometry->vertexNormals[firstPoint.vertex];
+  vertexNormal /= vertexNormal.norm();
+  globalDir = globalDir.removeComponent(vertexNormal);
+
+  Vector3 basisX = m_geometry->vertexTangentBasis[firstPoint.vertex][0];
+  Vector3 basisY = m_geometry->vertexTangentBasis[firstPoint.vertex][1];
+
+  m_initDir = Vector2{dot(globalDir, basisX), dot(globalDir, basisY)};
+  m_initDir /= m_initDir.norm();
+}
+
+/*
  * A quick and dirty method for automatically generating an initial axis. Heuristic: Want the axis to roughly be aligned
  * with the longest dimension of the shape's bounding object. Computing bbox is kind of hard; just estimate the pair of
  * points with the greatest distance between them, and draw a geodesic between them.
@@ -58,6 +93,7 @@ void SurfacePatch::createDefaultAxis() {
 
   m_patchAxisSparse = paths[0];
   m_startPoint = m_patchAxisSparse[0];
+  computeInitialAxisDirection();
   constructDenselySampledAxis();
   computeAxisAnglesAndDistances();
 }
@@ -165,7 +201,7 @@ void SurfacePatch::rotateAxis(Vector2 newDir) {
   traceAxis();
 }
 
-void SurfacePatch::transfer(SurfacePatch* target, const Vertex& targetMeshStart, Vector2 initDir) {
+void SurfacePatch::transfer(SurfacePatch* target, const Vertex& targetMeshStart) {
   // All angles and distances should be the same, save for the first one (which is ignored)
   target->m_patchAxisSparseAngles.insert(target->m_patchAxisSparseAngles.end(), m_patchAxisSparseAngles.begin(),
                                          m_patchAxisSparseAngles.end());
@@ -173,7 +209,7 @@ void SurfacePatch::transfer(SurfacePatch* target, const Vertex& targetMeshStart,
                                             m_patchAxisSparseDistances.begin(), m_patchAxisSparseDistances.end());
 
   target->m_startPoint = SurfacePoint(targetMeshStart);
-  target->m_initDir = initDir;
+  target->m_initDir = m_initDir;
 
   target->traceAxis();
 
@@ -182,15 +218,16 @@ void SurfacePatch::transfer(SurfacePatch* target, const Vertex& targetMeshStart,
   target->reconstructBoundary();
 }
 
-void SurfacePatch::translate(const Vertex& newStartVertex, Vector2 initDir) {
+void SurfacePatch::translate(const Vertex& newStartVertex) {
   m_startPoint = SurfacePoint(newStartVertex);
-  m_initDir = initDir;
+  m_initDir = m_axisDirectionTable[newStartVertex];
   traceAxis();
 }
 
 void SurfacePatch::setPatchAxis(const std::vector<SurfacePoint>& axis) {
   m_patchAxisSparse = axis;
   m_startPoint = m_patchAxisSparse[0];
+  computeInitialAxisDirection();
   constructDenselySampledAxis();
   computeAxisAnglesAndDistances();
 }
@@ -268,8 +305,6 @@ void SurfacePatch::computeAxisAnglesAndDistances() {
     adjustedDir = origDir / offsetDir;
     angles[i] = adjustedDir;
   }
-
-  m_initDir = Vector2::fromComplex(angles[0]);
 
   m_patchAxisSparseAngles = angles;
   m_patchAxisSparseDistances = distances;
