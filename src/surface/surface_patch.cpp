@@ -1,4 +1,5 @@
 #include "geometrycentral/surface/surface_patch.h"
+#include "geometrycentral/surface/surface_point.h"
 
 int mod(int a, int b) { return (b + (a % b)) % b; }
 
@@ -68,6 +69,14 @@ void SurfacePatch::get(std::vector<SurfacePoint>& axis, std::vector<SurfacePoint
 
 Vector2 SurfacePatch::getInitDir() { return m_initDir; }
 
+void SurfacePatch::invertOrder() { reverse(m_parameterizedBoundary.begin(), m_parameterizedBoundary.end()); }
+
+void SurfacePatch::leftShiftOrder() {
+  params firstElem = m_parameterizedBoundary[0];
+  m_parameterizedBoundary.push_back(firstElem);
+  m_parameterizedBoundary.erase(m_parameterizedBoundary.begin());
+}
+
 void SurfacePatch::reconstructBoundary() { reconstructBoundaryWithParams(m_parameterizedBoundary); }
 
 void SurfacePatch::reparameterizeBoundary() {
@@ -121,6 +130,12 @@ void SurfacePatch::reparameterizeBoundary() {
   }
 
   m_parameterizedBoundary.insert(m_parameterizedBoundary.begin(), bdyPtToParam.begin(), bdyPtToParam.end());
+}
+
+void SurfacePatch::rightShiftOrder() {
+  params lastElem = m_parameterizedBoundary[m_parameterizedBoundary.size() - 1];
+  m_parameterizedBoundary.insert(m_parameterizedBoundary.begin(), lastElem);
+  m_parameterizedBoundary.pop_back();
 }
 
 void SurfacePatch::rotateAxis(Vector2 newDir) {
