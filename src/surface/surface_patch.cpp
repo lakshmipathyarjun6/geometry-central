@@ -77,7 +77,29 @@ void SurfacePatch::leftShiftOrder() {
   m_parameterizedBoundary.erase(m_parameterizedBoundary.begin());
 }
 
-void SurfacePatch::reconstructBoundary() { reconstructBoundaryWithParams(m_parameterizedBoundary); }
+void SurfacePatch::reconstructBoundary() {
+  m_patchBoundary.clear();
+
+  // Use distances/directions to reconstruct patches from sparse axis
+  SurfacePoint pathEndpoint;
+  TraceGeodesicResult tracedGeodesic;
+
+  std::vector<SurfacePoint> constructedBoundary(m_parameterizedBoundary.size());
+
+  for (size_t i = 0; i < m_parameterizedBoundary.size(); i++) {
+    params p = m_parameterizedBoundary[i];
+    std::complex<double> dir = p.dir;
+    std::complex<double> axisBasis = axisTangent(m_patchAxisSparseDenseIdx[p.cp], m_patchAxisDense);
+    dir /= std::abs(dir);
+    axisBasis /= std::abs(axisBasis);
+    dir *= axisBasis;
+    tracedGeodesic = traceGeodesic(*(m_geometry), m_patchAxisSparse[p.cp], Vector2::fromComplex(p.dist * dir));
+    pathEndpoint = tracedGeodesic.endPoint;
+    constructedBoundary[i] = pathEndpoint;
+  }
+
+  m_patchBoundary.insert(m_patchBoundary.begin(), constructedBoundary.begin(), constructedBoundary.end());
+}
 
 void SurfacePatch::reparameterizeBoundary() {
   m_parameterizedBoundary.clear();
@@ -156,7 +178,8 @@ void SurfacePatch::transfer(SurfacePatch* target, const Vertex& targetMeshStart,
   target->traceAxis();
 
   // Compute distances and directions on S1, then reconstruct contact on S2
-  target->reconstructBoundaryWithParams(m_parameterizedBoundary);
+  target->m_parameterizedBoundary = m_parameterizedBoundary;
+  target->reconstructBoundary();
 }
 
 void SurfacePatch::translate(const Vertex& newStartVertex, Vector2 initDir) {
@@ -455,30 +478,6 @@ Vector2 SurfacePatch::localDir(const SurfacePoint& pt1, const SurfacePoint& pt2)
   Vector2 dir = {dot(globalDir, local_x), dot(globalDir, local_y)}; // not necessarily unit
   dir /= dir.norm();
   return dir;
-}
-
-void SurfacePatch::reconstructBoundaryWithParams(const std::vector<params>& bdyPtToParam) {
-  m_patchBoundary.clear();
-
-  // Use distances/directions to reconstruct patches from sparse axis
-  SurfacePoint pathEndpoint;
-  TraceGeodesicResult tracedGeodesic;
-
-  std::vector<SurfacePoint> constructedBoundary(bdyPtToParam.size());
-
-  for (size_t i = 0; i < bdyPtToParam.size(); i++) {
-    params p = bdyPtToParam[i];
-    std::complex<double> dir = p.dir;
-    std::complex<double> axisBasis = axisTangent(m_patchAxisSparseDenseIdx[p.cp], m_patchAxisDense);
-    dir /= std::abs(dir);
-    axisBasis /= std::abs(axisBasis);
-    dir *= axisBasis;
-    tracedGeodesic = traceGeodesic(*(m_geometry), m_patchAxisSparse[p.cp], Vector2::fromComplex(p.dist * dir));
-    pathEndpoint = tracedGeodesic.endPoint;
-    constructedBoundary[i] = pathEndpoint;
-  }
-
-  m_patchBoundary.insert(m_patchBoundary.begin(), constructedBoundary.begin(), constructedBoundary.end());
 }
 
 void SurfacePatch::traceAxis() {
