@@ -34,9 +34,15 @@ public:
 
   Vector2 getInitDir();
 
+  void invertOrder();
+
+  void leftShiftOrder();
+
   void reconstructBoundary();
 
   void reparameterizeBoundary();
+
+  void rightShiftOrder();
 
   void rotateAxis(Vector2 newDir);
 
