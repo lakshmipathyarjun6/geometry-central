@@ -38,7 +38,9 @@ public:
 
   Vector2 getInitDir();
 
-  void invertOrder();
+  void invertAxisOrder();
+
+  void invertBoundaryOrder();
 
   void leftShiftOrder();
 
