@@ -105,7 +105,16 @@ void SurfacePatch::get(std::vector<SurfacePoint>& axis, std::vector<SurfacePoint
 
 Vector2 SurfacePatch::getInitDir() { return m_initDir; }
 
-void SurfacePatch::invertOrder() { reverse(m_parameterizedBoundary.begin(), m_parameterizedBoundary.end()); }
+void SurfacePatch::invertAxisOrder() {
+  reverse(m_patchAxisSparse.begin(), m_patchAxisSparse.end());
+
+  m_startPoint = m_patchAxisSparse[0];
+  computeInitialAxisDirection();
+  constructDenselySampledAxis();
+  computeAxisAnglesAndDistances();
+}
+
+void SurfacePatch::invertBoundaryOrder() { reverse(m_parameterizedBoundary.begin(), m_parameterizedBoundary.end()); }
 
 void SurfacePatch::leftShiftOrder() {
   params firstElem = m_parameterizedBoundary[0];
