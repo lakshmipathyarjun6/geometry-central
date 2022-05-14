@@ -44,6 +44,10 @@ public:
 
   void leftShiftOrder();
 
+  void linkPatch(std::string childName, SurfacePatch* child);
+
+  void propagateChildUpdates();
+
   void reconstructBoundary();
 
   void reparameterizeBoundary();
@@ -59,6 +63,10 @@ public:
   void setPatchAxis(const std::vector<SurfacePoint>& axis);
 
   void setPatchBoundary(const std::vector<SurfacePoint>& boundary);
+
+  void unlinkAllPatches();
+
+  void unlinkPatch(std::string childName);
 
 private:
   std::complex<double> axisTangent(size_t idx, const std::vector<SurfacePoint>& axis);
@@ -95,6 +103,11 @@ private:
 
   std::vector<params> m_parameterizedBoundary;
   std::vector<SurfacePoint> m_patchBoundary;
+
+  // To support hierarchal organization
+  SurfacePatch* m_parent;
+  std::map<std::string, SurfacePatch*> m_children;
+  std::map<std::string, std::tuple<std::complex<double>, std::complex<double>, double, double>> m_childTraceParams;
 
   SurfacePoint m_startPoint;
   Vector2 m_initDir;
