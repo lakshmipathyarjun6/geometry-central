@@ -1,5 +1,4 @@
 #include "geometrycentral/surface/surface_patch.h"
-#include "geometrycentral/surface/surface_point.h"
 
 int mod(int a, int b) { return (b + (a % b)) % b; }
 
@@ -31,18 +30,7 @@ void SurfacePatch::computeInitialAxisDirection() {
   SurfacePoint firstPoint = m_patchAxisSparse[0];
   SurfacePoint secondPoint = m_patchAxisSparse[1];
 
-  Vector3 globalDir =
-      m_geometry->inputVertexPositions[secondPoint.vertex] - m_geometry->inputVertexPositions[firstPoint.vertex];
-  globalDir /= globalDir.norm();
-
-  Vector3 vertexNormal = m_geometry->vertexNormals[firstPoint.vertex];
-  vertexNormal /= vertexNormal.norm();
-  globalDir = globalDir.removeComponent(vertexNormal);
-
-  Vector3 basisX = m_geometry->vertexTangentBasis[firstPoint.vertex][0];
-  Vector3 basisY = m_geometry->vertexTangentBasis[firstPoint.vertex][1];
-
-  m_initDir = Vector2{dot(globalDir, basisX), dot(globalDir, basisY)};
+  m_initDir = localDir(firstPoint, secondPoint);
   m_initDir /= m_initDir.norm();
 }
 
@@ -120,6 +108,106 @@ void SurfacePatch::leftShiftOrder() {
   params firstElem = m_parameterizedBoundary[0];
   m_parameterizedBoundary.push_back(firstElem);
   m_parameterizedBoundary.erase(m_parameterizedBoundary.begin());
+}
+
+void SurfacePatch::linkPatch(std::string childName, SurfacePatch* child) {
+  m_children[childName] = child;
+  child->m_parent = this;
+
+  Vertex parentStartpoint = m_startPoint.nearestVertex();
+  Vertex childStartpoint = child->m_startPoint.nearestVertex();
+  Vertex childSecondpoint = child->m_patchAxisSparse[1].nearestVertex();
+
+  TraceGeodesicResult tracedGeodesic;
+  TraceOptions traceOptions;
+  traceOptions.includePath = true;
+
+  std::unique_ptr<FlipEdgeNetwork> edgeNetwork;
+  edgeNetwork = FlipEdgeNetwork::constructFromDijkstraPath(*m_mesh, *m_geometry, parentStartpoint, childStartpoint);
+
+  std::vector<std::vector<SurfacePoint>> paths = edgeNetwork->getPathPolyline();
+  std::vector<SurfacePoint> result = paths[0];
+
+  double totalDist1 = 0;
+
+  for (size_t i = 0; i < result.size() - 1; i++) {
+    SurfacePoint pt1 = result[i];
+    SurfacePoint pt2 = result[i + 1];
+    Vector3 a = pt1.interpolate(m_geometry->inputVertexPositions);
+    Vector3 b = pt2.interpolate(m_geometry->inputVertexPositions);
+    totalDist1 += (a - b).norm();
+  }
+
+  edgeNetwork = FlipEdgeNetwork::constructFromDijkstraPath(*m_mesh, *m_geometry, parentStartpoint, childSecondpoint);
+
+  paths = edgeNetwork->getPathPolyline();
+  result = paths[0];
+
+  double totalDist2 = 0;
+
+  for (size_t i = 0; i < result.size() - 1; i++) {
+    SurfacePoint pt1 = result[i];
+    SurfacePoint pt2 = result[i + 1];
+    Vector3 a = pt1.interpolate(m_geometry->inputVertexPositions);
+    Vector3 b = pt2.interpolate(m_geometry->inputVertexPositions);
+    totalDist2 += (a - b).norm();
+  }
+
+  Vector2 offsetDepartDir = m_initDir;
+  Vector2 targetDepartDir1 = localDir(parentStartpoint, childStartpoint);
+  Vector2 targetDepartDir2 = localDir(parentStartpoint, child->m_patchAxisSparse[1].nearestVertex());
+
+  std::complex<double> localAngleDepart1 = targetDepartDir1 / offsetDepartDir;
+  std::complex<double> localAngleDepart2 = targetDepartDir2 / offsetDepartDir;
+
+  std::tuple<std::complex<double>, std::complex<double>, double, double> childTraceParams =
+      std::make_tuple(localAngleDepart1, localAngleDepart2, totalDist1, totalDist2);
+
+  m_childTraceParams[childName] = childTraceParams;
+}
+
+void SurfacePatch::propagateChildUpdates() {
+  SurfacePoint pathEndpoint;
+
+  TraceGeodesicResult tracedGeodesic;
+  TraceOptions traceOptions;
+  traceOptions.includePath = true;
+
+  for (auto const& child : m_children) {
+    std::string childName = child.first;
+    SurfacePatch* childPatch = child.second;
+
+    std::tuple<std::complex<double>, std::complex<double>, double, double> childTraceParams =
+        m_childTraceParams[childName];
+
+    std::complex<double> localAngleDepart1 = std::get<0>(childTraceParams);
+    std::complex<double> localAngleDepart2 = std::get<1>(childTraceParams);
+    double childLocalDist1 = std::get<2>(childTraceParams);
+    double childLocalDist2 = std::get<3>(childTraceParams);
+
+    std::complex<double> offsetDepartDir = m_initDir;
+    std::complex<double> targetDepartDir1 = offsetDepartDir * localAngleDepart1;
+
+    tracedGeodesic = traceGeodesic(*(m_geometry), m_startPoint,
+                                   Vector2::fromComplex(targetDepartDir1 * childLocalDist1), traceOptions);
+    pathEndpoint = tracedGeodesic.endPoint;
+
+    childPatch->m_patchAxisSparse[0] = pathEndpoint;
+    childPatch->m_startPoint = childPatch->m_patchAxisSparse[0];
+
+    std::complex<double> targetDepartDir2 = offsetDepartDir * localAngleDepart2;
+
+    tracedGeodesic = traceGeodesic(*(m_geometry), m_startPoint,
+                                   Vector2::fromComplex(targetDepartDir2 * childLocalDist2), traceOptions);
+    pathEndpoint = tracedGeodesic.endPoint;
+    childPatch->m_patchAxisSparse[1] = pathEndpoint;
+
+    childPatch->m_initDir = localDir(childPatch->m_patchAxisSparse[0], childPatch->m_patchAxisSparse[1]);
+
+    childPatch->traceAxis();
+
+    childPatch->propagateChildUpdates();
+  }
 }
 
 void SurfacePatch::reconstructBoundary() {
@@ -208,6 +296,15 @@ void SurfacePatch::rightShiftOrder() {
 void SurfacePatch::rotateAxis(Vector2 newDir) {
   m_initDir = newDir;
   traceAxis();
+  propagateChildUpdates();
+}
+
+void SurfacePatch::setBulkTransferParams(SurfacePatch* sourcePatch, std::string sourcePatchName,
+                                         std::string destinationPatchName) {
+  std::cout << "Overriding child trace params of " << destinationPatchName << " with " << sourcePatchName << std::endl;
+
+  m_childTraceParams[destinationPatchName] = sourcePatch->m_childTraceParams[sourcePatchName];
+  propagateChildUpdates();
 }
 
 void SurfacePatch::transfer(SurfacePatch* target, const Vertex& targetMeshStart) {
@@ -231,6 +328,7 @@ void SurfacePatch::translate(const Vertex& newStartVertex) {
   m_startPoint = SurfacePoint(newStartVertex);
   m_initDir = m_axisDirectionTable[newStartVertex];
   traceAxis();
+  propagateChildUpdates();
 }
 
 void SurfacePatch::setPatchAxis(const std::vector<SurfacePoint>& axis) {
@@ -243,6 +341,33 @@ void SurfacePatch::setPatchAxis(const std::vector<SurfacePoint>& axis) {
 
 void SurfacePatch::setPatchBoundary(const std::vector<SurfacePoint>& boundary) { m_patchBoundary = boundary; }
 
+void SurfacePatch::unlinkAllPatches() {
+  std::vector<std::string> allChildren;
+
+  for (auto const& child : m_children) {
+    std::string childName = child.first;
+    allChildren.push_back(childName);
+  }
+
+  for (std::string childName : allChildren) {
+    SurfacePatch* childPatch = m_children[childName];
+    childPatch->unlinkAllPatches();
+    unlinkPatch(childName);
+  }
+}
+
+void SurfacePatch::unlinkPatch(std::string childName) {
+  if (m_childTraceParams.count(childName) <= 0) {
+    std::cout << "Child does not exist - doing nothing" << std::endl;
+    return;
+  }
+
+  SurfacePatch* child = m_children[childName];
+  child->m_parent = NULL;
+
+  m_children.erase(childName);
+  m_childTraceParams.erase(childName);
+}
 
 // Begin private utils
 
