@@ -56,6 +56,8 @@ public:
 
   void rotateAxis(Vector2 newDir);
 
+  void setBulkTransferParams(SurfacePatch* sourcePatch, std::string sourcePatchName, std::string destinationPatchName);
+
   void transfer(SurfacePatch* target, const Vertex& targetMeshStart);
 
   void translate(const Vertex& newStartVertex);

@@ -299,6 +299,14 @@ void SurfacePatch::rotateAxis(Vector2 newDir) {
   propagateChildUpdates();
 }
 
+void SurfacePatch::setBulkTransferParams(SurfacePatch* sourcePatch, std::string sourcePatchName,
+                                         std::string destinationPatchName) {
+  std::cout << "Overriding child trace params of " << destinationPatchName << " with " << sourcePatchName << std::endl;
+
+  m_childTraceParams[destinationPatchName] = sourcePatch->m_childTraceParams[sourcePatchName];
+  propagateChildUpdates();
+}
+
 void SurfacePatch::transfer(SurfacePatch* target, const Vertex& targetMeshStart) {
   // All angles and distances should be the same, save for the first one (which is ignored)
   target->m_patchAxisSparseAngles.insert(target->m_patchAxisSparseAngles.end(), m_patchAxisSparseAngles.begin(),
