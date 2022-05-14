@@ -303,24 +303,48 @@ void SurfacePatch::setBulkTransferParams(SurfacePatch* sourcePatch, std::string 
                                          std::string destinationPatchName) {
   std::cout << "Overriding child trace params of " << destinationPatchName << " with " << sourcePatchName << std::endl;
 
-  m_childTraceParams[destinationPatchName] = sourcePatch->m_childTraceParams[sourcePatchName];
+  std::tuple<std::complex<double>, std::complex<double>, double, double> sourceChildTraceParams =
+      sourcePatch->m_childTraceParams[sourcePatchName];
+
+  std::complex<double> localAngleDepart1 = std::get<0>(sourceChildTraceParams);
+  std::complex<double> localAngleDepart2 = std::get<1>(sourceChildTraceParams);
+  double sourcedLocalDist1 = std::get<2>(sourceChildTraceParams);
+  double sourceLocalDist2 = std::get<3>(sourceChildTraceParams);
+
+  std::complex<double> invertedLocalAngleDepart1 =
+      std::complex<double>{localAngleDepart1.real(), -localAngleDepart1.imag()};
+  std::complex<double> invertedLocalAngleDepart2 =
+      std::complex<double>{localAngleDepart2.real(), -localAngleDepart2.imag()};
+
+  m_childTraceParams[destinationPatchName] =
+      std::make_tuple(invertedLocalAngleDepart1, invertedLocalAngleDepart2, sourcedLocalDist1, sourceLocalDist2);
+
   propagateChildUpdates();
 }
 
 void SurfacePatch::transfer(SurfacePatch* target, const Vertex& targetMeshStart) {
   // All angles and distances should be the same, save for the first one (which is ignored)
-  target->m_patchAxisSparseAngles.insert(target->m_patchAxisSparseAngles.end(), m_patchAxisSparseAngles.begin(),
-                                         m_patchAxisSparseAngles.end());
   target->m_patchAxisSparseDistances.insert(target->m_patchAxisSparseDistances.end(),
                                             m_patchAxisSparseDistances.begin(), m_patchAxisSparseDistances.end());
 
-  target->m_startPoint = SurfacePoint(targetMeshStart);
-  target->m_initDir = m_initDir;
+  // Need to negate the angle due to inverting the curve (unintuitive)
+  for (int i = 0; i < m_patchAxisSparseAngles.size(); i++) {
+    std::complex<double> originalAngle = m_patchAxisSparseAngles[i];
+    std::complex<double> modifiedAngle = std::complex<double>{originalAngle.real(), -originalAngle.imag()};
+    target->m_patchAxisSparseAngles.push_back(modifiedAngle);
+  }
 
+  target->m_startPoint = SurfacePoint(targetMeshStart);
+  target->m_initDir = Vector2{-m_initDir.x, m_initDir.y}; // need to invert start direction - rather unintuitive
   target->traceAxis();
 
   // Compute distances and directions on S1, then reconstruct contact on S2
-  target->m_parameterizedBoundary = m_parameterizedBoundary;
+
+  // Need to also invert boundary order (unintuitive)
+  std::vector<params> targetParameterizedBoundary(m_parameterizedBoundary);
+  std::reverse(targetParameterizedBoundary.begin(), targetParameterizedBoundary.end());
+
+  target->m_parameterizedBoundary = targetParameterizedBoundary;
   target->reconstructBoundary();
 }
 
