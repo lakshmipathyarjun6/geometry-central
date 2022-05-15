@@ -66,7 +66,7 @@ public:
 
   void translate(const Vertex& newStartVertex);
 
-  void setPatchAxis(const std::vector<SurfacePoint>& axis);
+  void setPatchAxis(const std::vector<SurfacePoint>& axis, const std::vector<std::complex<double>>& dirs, const std::vector<double>& dists);
 
   void setPatchBoundary(const std::vector<SurfacePoint>& boundary);
 
