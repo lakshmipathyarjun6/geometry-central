@@ -91,6 +91,10 @@ void SurfacePatch::get(std::vector<SurfacePoint>& axis, std::vector<SurfacePoint
   boundary = m_patchBoundary;
 }
 
+std::vector<std::string> SurfacePatch::getAxisSerialized() { return getSerializedSurfacePoints(m_patchAxisSparse); }
+
+std::vector<std::string> SurfacePatch::getBoundarySerialized() { return getSerializedSurfacePoints(m_patchBoundary); }
+
 Vector2 SurfacePatch::getInitDir() { return m_initDir; }
 
 void SurfacePatch::invertAxisOrder() {
@@ -577,6 +581,43 @@ double SurfacePatch::evaluateVertexDataAtPoint(const VertexData<double>& u, cons
     return val;
   }
   return -1; // shouldn't get here
+}
+
+std::vector<std::string> SurfacePatch::getSerializedSurfacePoints(std::vector<SurfacePoint>& source) {
+  std::vector<std::string> result;
+
+  for (SurfacePoint p : source) {
+    SurfacePointType t = p.type;
+
+    std::string serialized;
+
+    if (t == SurfacePointType::Edge) {
+      Edge e = p.edge;
+      int idx = e.getIndex();
+      double tEdge = p.tEdge;
+
+      serialized = "e " + std::to_string(idx) + " " + std::to_string(tEdge);
+    } else if (t == SurfacePointType::Face) {
+      Face f = p.face;
+      int idx = f.getIndex();
+      Vector3 faceCoords = p.faceCoords;
+
+      serialized = "f " + std::to_string(idx) + " " + std::to_string(faceCoords.x) + " " +
+                   std::to_string(faceCoords.y) + " " + std::to_string(faceCoords.z);
+    } else if (t == SurfacePointType::Vertex) {
+      Vertex v = p.vertex;
+      int idx = v.getIndex();
+
+      serialized = "v " + std::to_string(idx);
+    } else {
+      std::cout << "Unknown surface type found. Killing" << std::endl;
+      serialized = "NULL";
+    }
+
+    result.push_back(serialized);
+  }
+
+  return result;
 }
 
 /*

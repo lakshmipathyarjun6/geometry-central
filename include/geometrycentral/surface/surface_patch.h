@@ -36,6 +36,10 @@ public:
 
   void get(std::vector<SurfacePoint>& axis, std::vector<SurfacePoint>& boundary);
 
+  std::vector<std::string> getAxisSerialized();
+
+  std::vector<std::string> getBoundarySerialized();
+
   Vector2 getInitDir();
 
   void invertAxisOrder();
@@ -82,6 +86,8 @@ private:
   Vector2 evaluateLogMap(const VertexData<Vector2>& logMap, const SurfacePoint& pt);
 
   double evaluateVertexDataAtPoint(const VertexData<double>& u, const SurfacePoint& pt);
+
+  std::vector<std::string> getSerializedSurfacePoints(std::vector<SurfacePoint>& source);
 
   size_t indexOfClosestPointOnAxis(double diffusedVal,
                                    const std::vector<std::tuple<SurfacePoint, double>>& zippedDistances);
