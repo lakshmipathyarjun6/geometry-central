@@ -91,7 +91,52 @@ void SurfacePatch::get(std::vector<SurfacePoint>& axis, std::vector<SurfacePoint
   boundary = m_patchBoundary;
 }
 
-std::vector<std::string> SurfacePatch::getAxisSerialized() { return getSerializedSurfacePoints(m_patchAxisSparse); }
+std::vector<std::string> SurfacePatch::getAxisSerialized() {
+
+  std::vector<std::string> result;
+
+  int numElements = m_patchAxisSparse.size();
+
+  for (int i = 0; i < numElements; i++) {
+    SurfacePoint p = m_patchAxisSparse[i];
+    std::complex<double> dir = m_patchAxisSparseAngles[i];
+    double dist = m_patchAxisSparseDistances[i];
+
+    SurfacePointType t = p.type;
+
+    std::string serializedExtraParams =
+        std::to_string(dir.real()) + " " + std::to_string(dir.imag()) + " " + std::to_string(dist);
+
+    std::string serialized;
+
+    if (t == SurfacePointType::Edge) {
+      Edge e = p.edge;
+      int idx = e.getIndex();
+      double tEdge = p.tEdge;
+
+      serialized = "e " + std::to_string(idx) + " " + std::to_string(tEdge) + " " + serializedExtraParams;
+    } else if (t == SurfacePointType::Face) {
+      Face f = p.face;
+      int idx = f.getIndex();
+      Vector3 faceCoords = p.faceCoords;
+
+      serialized = "f " + std::to_string(idx) + " " + std::to_string(faceCoords.x) + " " +
+                   std::to_string(faceCoords.y) + " " + std::to_string(faceCoords.z) + " " + serializedExtraParams;
+    } else if (t == SurfacePointType::Vertex) {
+      Vertex v = p.vertex;
+      int idx = v.getIndex();
+
+      serialized = "v " + std::to_string(idx) + " " + serializedExtraParams;
+    } else {
+      std::cout << "Unknown surface type found. Killing" << std::endl;
+      serialized = "NULL";
+    }
+
+    result.push_back(serialized);
+  }
+
+  return result;
+}
 
 std::vector<std::string> SurfacePatch::getBoundarySerialized() { return getSerializedSurfacePoints(m_patchBoundary); }
 
@@ -359,12 +404,15 @@ void SurfacePatch::translate(const Vertex& newStartVertex) {
   propagateChildUpdates();
 }
 
-void SurfacePatch::setPatchAxis(const std::vector<SurfacePoint>& axis) {
+void SurfacePatch::setPatchAxis(const std::vector<SurfacePoint>& axis, const std::vector<std::complex<double>>& dirs,
+                                const std::vector<double>& dists) {
   m_patchAxisSparse = axis;
   m_startPoint = m_patchAxisSparse[0];
+  m_patchAxisSparseAngles = dirs;
+  m_patchAxisSparseDistances = dists;
+
   computeInitialAxisDirection();
-  constructDenselySampledAxis();
-  computeAxisAnglesAndDistances();
+  traceAxis();
 }
 
 void SurfacePatch::setPatchBoundary(const std::vector<SurfacePoint>& boundary) { m_patchBoundary = boundary; }
