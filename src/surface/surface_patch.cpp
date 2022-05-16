@@ -34,6 +34,21 @@ void SurfacePatch::computeInitialAxisDirection() {
   m_initDir /= m_initDir.norm();
 }
 
+void SurfacePatch::createCustomAxis(std::vector<Vertex>& axisPoits) {
+  m_patchAxisSparse.clear();
+
+  std::unique_ptr<FlipEdgeNetwork> edgeNetwork;
+  edgeNetwork = FlipEdgeNetwork::constructFromPiecewiseDijkstraPath(*m_mesh, *m_geometry, axisPoits);
+
+  std::vector<std::vector<SurfacePoint>> paths = edgeNetwork->getPathPolyline();
+
+  m_patchAxisSparse = paths[0];
+  m_startPoint = m_patchAxisSparse[0];
+  computeInitialAxisDirection();
+  constructDenselySampledAxis();
+  computeAxisAnglesAndDistances();
+}
+
 /*
  * A quick and dirty method for automatically generating an initial axis. Heuristic: Want the axis to roughly be aligned
  * with the longest dimension of the shape's bounding object. Computing bbox is kind of hard; just estimate the pair of
