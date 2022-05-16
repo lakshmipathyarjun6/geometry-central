@@ -1,4 +1,5 @@
 #include "geometrycentral/surface/surface_patch.h"
+#include "geometrycentral/surface/surface_point.h"
 
 int mod(int a, int b) { return (b + (a % b)) % b; }
 
@@ -386,27 +387,29 @@ void SurfacePatch::setBulkTransferParams(SurfacePatch* sourcePatch, std::string 
   propagateChildUpdates();
 }
 
-void SurfacePatch::transfer(SurfacePatch* target, const Vertex& targetMeshStart) {
+void SurfacePatch::transfer(SurfacePatch* target, const Vertex& targetMeshStart, const Vertex& targetMeshDirEndpoit) {
   // All angles and distances should be the same, save for the first one (which is ignored)
+  target->m_patchAxisSparseAngles = m_patchAxisSparseAngles;
   target->m_patchAxisSparseDistances.insert(target->m_patchAxisSparseDistances.end(),
                                             m_patchAxisSparseDistances.begin(), m_patchAxisSparseDistances.end());
 
-  // Need to negate the angle due to inverting the curve (unintuitive)
-  for (int i = 0; i < m_patchAxisSparseAngles.size(); i++) {
-    std::complex<double> originalAngle = m_patchAxisSparseAngles[i];
-    std::complex<double> modifiedAngle = std::complex<double>{originalAngle.real(), -originalAngle.imag()};
-    target->m_patchAxisSparseAngles.push_back(modifiedAngle);
-  }
+  SurfacePoint tmStart = SurfacePoint(targetMeshStart);
+  SurfacePoint tmEnd = SurfacePoint(targetMeshDirEndpoit);
 
-  target->m_startPoint = SurfacePoint(targetMeshStart);
-  target->m_initDir = Vector2{-m_initDir.x, m_initDir.y}; // need to invert start direction - rather unintuitive
+  target->m_startPoint = tmStart;
+  target->m_initDir = target->localDir(tmStart, tmEnd);
   target->traceAxis();
 
   // Compute distances and directions on S1, then reconstruct contact on S2
 
   // Need to also invert boundary order (unintuitive)
-  std::vector<params> targetParameterizedBoundary(m_parameterizedBoundary);
-  std::reverse(targetParameterizedBoundary.begin(), targetParameterizedBoundary.end());
+  std::vector<params> targetParameterizedBoundary(m_parameterizedBoundary.size());
+
+  for (int i = 0; i < m_parameterizedBoundary.size(); i++) {
+    params sourceParams = m_parameterizedBoundary[i];
+    params targetParams = {sourceParams.cp, sourceParams.dist, -sourceParams.dir};
+    targetParameterizedBoundary[i] = targetParams;
+  }
 
   target->m_parameterizedBoundary = targetParameterizedBoundary;
   target->reconstructBoundary();

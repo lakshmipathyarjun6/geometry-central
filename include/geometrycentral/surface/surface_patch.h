@@ -64,7 +64,7 @@ public:
 
   void setBulkTransferParams(SurfacePatch* sourcePatch, std::string sourcePatchName, std::string destinationPatchName);
 
-  void transfer(SurfacePatch* target, const Vertex& targetMeshStart);
+  void transfer(SurfacePatch* target, const Vertex& targetMeshStart, const Vertex& targetMeshDirEndpoit);
 
   void translate(const Vertex& newStartVertex);
 
