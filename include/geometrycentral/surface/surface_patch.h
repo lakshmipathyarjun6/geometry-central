@@ -32,6 +32,8 @@ public:
 
   void computeInitialAxisDirection();
 
+  void createCustomAxis(std::vector<Vertex>& axisPoits);
+
   void createDefaultAxis();
 
   void get(std::vector<SurfacePoint>& axis, std::vector<SurfacePoint>& boundary);
