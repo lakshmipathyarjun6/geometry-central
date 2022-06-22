@@ -40,7 +40,7 @@ loadMesh(std::string filename, std::string type = "");
 
 // Load mesh data from arbitrary source providing raw geometry information
 std::tuple<std::unique_ptr<ManifoldSurfaceMesh>, std::unique_ptr<VertexPositionGeometry>>
-loadMesh(std::vector<std::vector<size_t>>& polygons, std::vector<Vector3>& vertexCoordinates);
+loadMeshFromExplicitGeometry(std::vector<std::vector<size_t>>& polygons, std::vector<Vector3>& vertexCoordinates);
 
 
 // Write a surface mesh
