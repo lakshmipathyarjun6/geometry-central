@@ -62,7 +62,7 @@ std::tuple<std::unique_ptr<ManifoldSurfaceMesh>, std::unique_ptr<VertexPositionG
 }
 
 std::tuple<std::unique_ptr<ManifoldSurfaceMesh>, std::unique_ptr<VertexPositionGeometry>>
-loadMesh(std::vector<std::vector<size_t>>& polygons, std::vector<Vector3>& vertexCoordinates) {
+loadMeshFromExplicitGeometry(std::vector<std::vector<size_t>>& polygons, std::vector<Vector3>& vertexCoordinates) {
   std::string loadType = "custom";
   std::cout << "Declaring polygon mesh" << std::endl;
   SimplePolygonMesh simpleMesh(polygons, vertexCoordinates);
