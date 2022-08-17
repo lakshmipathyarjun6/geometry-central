@@ -64,11 +64,12 @@ public:
 
   void setBulkTransferParams(SurfacePatch* sourcePatch, std::string sourcePatchName, std::string destinationPatchName);
 
-  void transfer(SurfacePatch* target, const Vertex& targetMeshStart, const Vertex& targetMeshDirEndpoit);
+  void transfer(SurfacePatch* target, const SurfacePoint& targetMeshStart, const SurfacePoint& targetMeshDirEndpoit);
 
   void translate(const Vertex& newStartVertex);
 
-  void setPatchAxis(const std::vector<SurfacePoint>& axis, const std::vector<std::complex<double>>& dirs, const std::vector<double>& dists);
+  void setPatchAxis(const std::vector<SurfacePoint>& axis, const std::vector<std::complex<double>>& dirs,
+                    const std::vector<double>& dists);
 
   void setPatchBoundary(const std::vector<SurfacePoint>& boundary);
 

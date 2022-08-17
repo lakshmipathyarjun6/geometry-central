@@ -387,32 +387,32 @@ void SurfacePatch::setBulkTransferParams(SurfacePatch* sourcePatch, std::string 
   propagateChildUpdates();
 }
 
-void SurfacePatch::transfer(SurfacePatch* target, const Vertex& targetMeshStart, const Vertex& targetMeshDirEndpoit) {
+void SurfacePatch::transfer(SurfacePatch* target, const SurfacePoint& targetMeshStart,
+                            const SurfacePoint& targetMeshDirEndpoit) {
   // All angles and distances should be the same, save for the first one (which is ignored)
   target->m_patchAxisSparseAngles = m_patchAxisSparseAngles;
   target->m_patchAxisSparseDistances.insert(target->m_patchAxisSparseDistances.end(),
                                             m_patchAxisSparseDistances.begin(), m_patchAxisSparseDistances.end());
 
-  SurfacePoint tmStart = SurfacePoint(targetMeshStart);
-  SurfacePoint tmEnd = SurfacePoint(targetMeshDirEndpoit);
-
-  target->m_startPoint = tmStart;
-  target->m_initDir = target->localDir(tmStart, tmEnd);
+  target->m_startPoint = targetMeshStart;
+  target->m_initDir = target->localDir(targetMeshStart, targetMeshDirEndpoit);
   target->traceAxis();
 
   // Compute distances and directions on S1, then reconstruct contact on S2
-
+  // Recreate boundary only if boundary has been parameterized on source domain
   // Need to also invert boundary order (unintuitive)
-  std::vector<params> targetParameterizedBoundary(m_parameterizedBoundary.size());
+  if (m_parameterizedBoundary.size() > 0) {
+    std::vector<params> targetParameterizedBoundary(m_parameterizedBoundary.size());
 
-  for (int i = 0; i < m_parameterizedBoundary.size(); i++) {
-    params sourceParams = m_parameterizedBoundary[i];
-    params targetParams = {sourceParams.cp, sourceParams.dist, -sourceParams.dir};
-    targetParameterizedBoundary[i] = targetParams;
+    for (int i = 0; i < m_parameterizedBoundary.size(); i++) {
+      params sourceParams = m_parameterizedBoundary[i];
+      params targetParams = {sourceParams.cp, sourceParams.dist, -sourceParams.dir};
+      targetParameterizedBoundary[i] = targetParams;
+    }
+
+    target->m_parameterizedBoundary = targetParameterizedBoundary;
+    target->reconstructBoundary();
   }
-
-  target->m_parameterizedBoundary = targetParameterizedBoundary;
-  target->reconstructBoundary();
 }
 
 void SurfacePatch::translate(const Vertex& newStartVertex) {
