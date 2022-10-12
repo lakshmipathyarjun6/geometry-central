@@ -52,11 +52,11 @@ public:
 
   void linkPatch(std::string childName, SurfacePatch* child);
 
+  void parameterizePatch();
+
   void propagateChildUpdates();
 
   void reconstructBoundary();
-
-  void reparameterizeBoundary();
 
   void rightShiftOrder();
 
@@ -112,7 +112,7 @@ private:
   VertexData<Vector2> m_axisDirectionTable;
   std::vector<SurfacePoint> m_patchAxisDense;
 
-  std::vector<params> m_parameterizedBoundary;
+  std::vector<params> m_paramerizedPoints;
   std::vector<SurfacePoint> m_patchPoints;
 
   // To support hierarchal organization

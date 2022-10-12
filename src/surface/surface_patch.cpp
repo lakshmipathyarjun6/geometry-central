@@ -166,12 +166,12 @@ void SurfacePatch::invertAxisOrder() {
   computeAxisAnglesAndDistances();
 }
 
-void SurfacePatch::invertBoundaryOrder() { reverse(m_parameterizedBoundary.begin(), m_parameterizedBoundary.end()); }
+void SurfacePatch::invertBoundaryOrder() { reverse(m_paramerizedPoints.begin(), m_paramerizedPoints.end()); }
 
 void SurfacePatch::leftShiftOrder() {
-  params firstElem = m_parameterizedBoundary[0];
-  m_parameterizedBoundary.push_back(firstElem);
-  m_parameterizedBoundary.erase(m_parameterizedBoundary.begin());
+  params firstElem = m_paramerizedPoints[0];
+  m_paramerizedPoints.push_back(firstElem);
+  m_paramerizedPoints.erase(m_paramerizedPoints.begin());
 }
 
 void SurfacePatch::linkPatch(std::string childName, SurfacePatch* child) {
@@ -230,6 +230,59 @@ void SurfacePatch::linkPatch(std::string childName, SurfacePatch* child) {
   m_childTraceParams[childName] = childTraceParams;
 }
 
+void SurfacePatch::parameterizePatch() {
+  m_paramerizedPoints.clear();
+
+  VertexData<double> distToSource = m_distanceHeatSolver->computeDistance(m_patchAxisSparse);
+
+  std::cout << m_patchPoints.size() << std::endl;
+
+  // Do closest point interpolation.
+
+  std::vector<std::tuple<SurfacePoint, double>> zippedDistances; // distances along curve
+  zippedDistances.push_back(std::make_tuple(m_startPoint, 0));
+  double totalDist = 0;
+  for (size_t i = 0; i < m_patchAxisSparse.size() - 1; i++) {
+    SurfacePoint pt2 = m_patchAxisSparse[i + 1];
+    double dist = m_patchAxisSparseDistances[i];
+    totalDist += dist;
+    zippedDistances.push_back(std::make_tuple(pt2, totalDist));
+  }
+  VertexData<double> closestPoint = m_vectorHeatSolver->extendScalar(zippedDistances);
+
+  std::vector<params> bdyPtToParam(m_patchPoints.size());
+
+  for (size_t i = 0; i < m_patchPoints.size(); i++) {
+    SurfacePoint bdyPoint = m_patchPoints[i];
+    double diffusedVal = evaluateVertexDataAtPoint(closestPoint, bdyPoint);
+    size_t cp = indexOfClosestPointOnAxis(diffusedVal, zippedDistances);
+    SurfacePoint axisPoint = m_patchAxisSparse[cp];
+    VertexData<Vector2> logMap = m_vectorHeatSolver->computeLogMap(axisPoint);
+    std::complex<double> dir = evaluateLogMap(logMap, bdyPoint);
+    double logMapDist = std::abs(dir);
+
+    // Edge case: if distance is 0, then point is on axis
+    // In which case just assign an arbitrary direction and let the distance
+    // 0 out to prevent divide by 0 complaints
+    if (logMapDist <= 0) {
+      std::cout << "WARNING (DON'T PANIC): point found to lie on axis" << std::endl;
+      dir = std::complex<double>{1.0, 0.0};
+    }
+
+    // Compute relative to the tangent direction of the axis
+    dir /= std::abs(dir);
+    std::complex<double> axisBasis = axisTangent(m_patchAxisSparseDenseIdx[cp], m_patchAxisDense);
+    axisBasis /= std::abs(axisBasis);
+    dir = dir / axisBasis;
+    double heatDist = evaluateVertexDataAtPoint(distToSource, bdyPoint);
+    // TODO: Also try log map dist
+    params prms = {cp, heatDist, -dir};
+    bdyPtToParam[i] = prms;
+  }
+
+  m_paramerizedPoints.insert(m_paramerizedPoints.begin(), bdyPtToParam.begin(), bdyPtToParam.end());
+}
+
 void SurfacePatch::propagateChildUpdates() {
   SurfacePoint pathEndpoint;
 
@@ -281,10 +334,10 @@ void SurfacePatch::reconstructBoundary() {
   SurfacePoint pathEndpoint;
   TraceGeodesicResult tracedGeodesic;
 
-  std::vector<SurfacePoint> constructedBoundary(m_parameterizedBoundary.size());
+  std::vector<SurfacePoint> constructedBoundary(m_paramerizedPoints.size());
 
-  for (size_t i = 0; i < m_parameterizedBoundary.size(); i++) {
-    params p = m_parameterizedBoundary[i];
+  for (size_t i = 0; i < m_paramerizedPoints.size(); i++) {
+    params p = m_paramerizedPoints[i];
     std::complex<double> dir = p.dir;
     std::complex<double> axisBasis = axisTangent(m_patchAxisSparseDenseIdx[p.cp], m_patchAxisDense);
     dir /= std::abs(dir);
@@ -298,63 +351,10 @@ void SurfacePatch::reconstructBoundary() {
   m_patchPoints.insert(m_patchPoints.begin(), constructedBoundary.begin(), constructedBoundary.end());
 }
 
-void SurfacePatch::reparameterizeBoundary() {
-  m_parameterizedBoundary.clear();
-
-  VertexData<double> distToSource = m_distanceHeatSolver->computeDistance(m_patchAxisSparse);
-
-  std::cout << m_patchPoints.size() << std::endl;
-
-  // Do closest point interpolation.
-
-  std::vector<std::tuple<SurfacePoint, double>> zippedDistances; // distances along curve
-  zippedDistances.push_back(std::make_tuple(m_startPoint, 0));
-  double totalDist = 0;
-  for (size_t i = 0; i < m_patchAxisSparse.size() - 1; i++) {
-    SurfacePoint pt2 = m_patchAxisSparse[i + 1];
-    double dist = m_patchAxisSparseDistances[i];
-    totalDist += dist;
-    zippedDistances.push_back(std::make_tuple(pt2, totalDist));
-  }
-  VertexData<double> closestPoint = m_vectorHeatSolver->extendScalar(zippedDistances);
-
-  std::vector<params> bdyPtToParam(m_patchPoints.size());
-
-  for (size_t i = 0; i < m_patchPoints.size(); i++) {
-    SurfacePoint bdyPoint = m_patchPoints[i];
-    double diffusedVal = evaluateVertexDataAtPoint(closestPoint, bdyPoint);
-    size_t cp = indexOfClosestPointOnAxis(diffusedVal, zippedDistances);
-    SurfacePoint axisPoint = m_patchAxisSparse[cp];
-    VertexData<Vector2> logMap = m_vectorHeatSolver->computeLogMap(axisPoint);
-    std::complex<double> dir = evaluateLogMap(logMap, bdyPoint);
-    double logMapDist = std::abs(dir);
-
-    // Edge case: if distance is 0, then point is on axis
-    // In which case just assign an arbitrary direction and let the distance
-    // 0 out to prevent divide by 0 complaints
-    if (logMapDist <= 0) {
-      std::cout << "WARNING (DON'T PANIC): point found to lie on axis" << std::endl;
-      dir = std::complex<double>{1.0, 0.0};
-    }
-
-    // Compute relative to the tangent direction of the axis
-    dir /= std::abs(dir);
-    std::complex<double> axisBasis = axisTangent(m_patchAxisSparseDenseIdx[cp], m_patchAxisDense);
-    axisBasis /= std::abs(axisBasis);
-    dir = dir / axisBasis;
-    double heatDist = evaluateVertexDataAtPoint(distToSource, bdyPoint);
-    // TODO: Also try log map dist
-    params prms = {cp, heatDist, -dir};
-    bdyPtToParam[i] = prms;
-  }
-
-  m_parameterizedBoundary.insert(m_parameterizedBoundary.begin(), bdyPtToParam.begin(), bdyPtToParam.end());
-}
-
 void SurfacePatch::rightShiftOrder() {
-  params lastElem = m_parameterizedBoundary[m_parameterizedBoundary.size() - 1];
-  m_parameterizedBoundary.insert(m_parameterizedBoundary.begin(), lastElem);
-  m_parameterizedBoundary.pop_back();
+  params lastElem = m_paramerizedPoints[m_paramerizedPoints.size() - 1];
+  m_paramerizedPoints.insert(m_paramerizedPoints.begin(), lastElem);
+  m_paramerizedPoints.pop_back();
 }
 
 void SurfacePatch::rotateAxis(Vector2 newDir) {
@@ -400,16 +400,16 @@ void SurfacePatch::transfer(SurfacePatch* target, const SurfacePoint& targetMesh
   // Compute distances and directions on S1, then reconstruct contact on S2
   // Recreate boundary only if boundary has been parameterized on source domain
   // Need to also invert boundary order (unintuitive)
-  if (m_parameterizedBoundary.size() > 0) {
-    std::vector<params> targetParameterizedBoundary(m_parameterizedBoundary.size());
+  if (m_paramerizedPoints.size() > 0) {
+    std::vector<params> targetParameterizedBoundary(m_paramerizedPoints.size());
 
-    for (int i = 0; i < m_parameterizedBoundary.size(); i++) {
-      params sourceParams = m_parameterizedBoundary[i];
+    for (int i = 0; i < m_paramerizedPoints.size(); i++) {
+      params sourceParams = m_paramerizedPoints[i];
       params targetParams = {sourceParams.cp, sourceParams.dist, -sourceParams.dir};
       targetParameterizedBoundary[i] = targetParams;
     }
 
-    target->m_parameterizedBoundary = targetParameterizedBoundary;
+    target->m_paramerizedPoints = targetParameterizedBoundary;
     target->reconstructBoundary();
   }
 }
