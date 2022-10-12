@@ -1,5 +1,4 @@
 #include "geometrycentral/surface/surface_patch.h"
-#include "geometrycentral/surface/surface_point.h"
 
 int mod(int a, int b) { return (b + (a % b)) % b; }
 
@@ -72,18 +71,18 @@ void SurfacePatch::createDefaultAxis() {
   Vector<double> RHS = Vector<double>::Zero(m_mesh->nVertices());
   Vector<double> distToSource; // actually just a quantity that is inversely proportional to distance
 
-  for (size_t i = 0; i < m_patchBoundary.size(); i++) {
-    SurfacePoint pt = m_patchBoundary[i];
+  for (size_t i = 0; i < m_patchPoints.size(); i++) {
+    SurfacePoint pt = m_patchPoints[i];
     RHS[pt.vertex.getIndex()] = 1; // set
     distToSource = solver.solve(RHS);
 
-    for (size_t j = 0; j < m_patchBoundary.size(); j++) {
+    for (size_t j = 0; j < m_patchPoints.size(); j++) {
       if (j != i) {
-        double dist = 1.0 / distToSource[m_patchBoundary[j].vertex.getIndex()];
+        double dist = 1.0 / distToSource[m_patchPoints[j].vertex.getIndex()];
         if (dist > maxSoFar) {
           maxSoFar = dist;
           pt1 = pt;
-          pt2 = m_patchBoundary[j];
+          pt2 = m_patchPoints[j];
         }
       }
     }
@@ -102,9 +101,9 @@ void SurfacePatch::createDefaultAxis() {
   computeAxisAnglesAndDistances();
 }
 
-void SurfacePatch::get(std::vector<SurfacePoint>& axis, std::vector<SurfacePoint>& boundary) {
+void SurfacePatch::get(std::vector<SurfacePoint>& axis, std::vector<SurfacePoint>& points) {
   axis = m_patchAxisSparse;
-  boundary = m_patchBoundary;
+  points = m_patchPoints;
 }
 
 std::vector<std::string> SurfacePatch::getAxisSerialized() {
@@ -154,7 +153,7 @@ std::vector<std::string> SurfacePatch::getAxisSerialized() {
   return result;
 }
 
-std::vector<std::string> SurfacePatch::getBoundarySerialized() { return getSerializedSurfacePoints(m_patchBoundary); }
+std::vector<std::string> SurfacePatch::getBoundarySerialized() { return getSerializedSurfacePoints(m_patchPoints); }
 
 Vector2 SurfacePatch::getInitDir() { return m_initDir; }
 
@@ -276,7 +275,7 @@ void SurfacePatch::propagateChildUpdates() {
 }
 
 void SurfacePatch::reconstructBoundary() {
-  m_patchBoundary.clear();
+  m_patchPoints.clear();
 
   // Use distances/directions to reconstruct patches from sparse axis
   SurfacePoint pathEndpoint;
@@ -296,7 +295,7 @@ void SurfacePatch::reconstructBoundary() {
     constructedBoundary[i] = pathEndpoint;
   }
 
-  m_patchBoundary.insert(m_patchBoundary.begin(), constructedBoundary.begin(), constructedBoundary.end());
+  m_patchPoints.insert(m_patchPoints.begin(), constructedBoundary.begin(), constructedBoundary.end());
 }
 
 void SurfacePatch::reparameterizeBoundary() {
@@ -304,7 +303,7 @@ void SurfacePatch::reparameterizeBoundary() {
 
   VertexData<double> distToSource = m_distanceHeatSolver->computeDistance(m_patchAxisSparse);
 
-  std::cout << m_patchBoundary.size() << std::endl;
+  std::cout << m_patchPoints.size() << std::endl;
 
   // Do closest point interpolation.
 
@@ -319,10 +318,10 @@ void SurfacePatch::reparameterizeBoundary() {
   }
   VertexData<double> closestPoint = m_vectorHeatSolver->extendScalar(zippedDistances);
 
-  std::vector<params> bdyPtToParam(m_patchBoundary.size());
+  std::vector<params> bdyPtToParam(m_patchPoints.size());
 
-  for (size_t i = 0; i < m_patchBoundary.size(); i++) {
-    SurfacePoint bdyPoint = m_patchBoundary[i];
+  for (size_t i = 0; i < m_patchPoints.size(); i++) {
+    SurfacePoint bdyPoint = m_patchPoints[i];
     double diffusedVal = evaluateVertexDataAtPoint(closestPoint, bdyPoint);
     size_t cp = indexOfClosestPointOnAxis(diffusedVal, zippedDistances);
     SurfacePoint axisPoint = m_patchAxisSparse[cp];
@@ -433,7 +432,7 @@ void SurfacePatch::setPatchAxis(const std::vector<SurfacePoint>& axis, const std
   traceAxis();
 }
 
-void SurfacePatch::setPatchBoundary(const std::vector<SurfacePoint>& boundary) { m_patchBoundary = boundary; }
+void SurfacePatch::setPatchPoints(const std::vector<SurfacePoint>& points) { m_patchPoints = points; }
 
 void SurfacePatch::unlinkAllPatches() {
   std::vector<std::string> allChildren;

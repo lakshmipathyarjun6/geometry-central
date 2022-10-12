@@ -36,7 +36,7 @@ public:
 
   void createDefaultAxis();
 
-  void get(std::vector<SurfacePoint>& axis, std::vector<SurfacePoint>& boundary);
+  void get(std::vector<SurfacePoint>& axis, std::vector<SurfacePoint>& points);
 
   std::vector<std::string> getAxisSerialized();
 
@@ -71,7 +71,7 @@ public:
   void setPatchAxis(const std::vector<SurfacePoint>& axis, const std::vector<std::complex<double>>& dirs,
                     const std::vector<double>& dists);
 
-  void setPatchBoundary(const std::vector<SurfacePoint>& boundary);
+  void setPatchPoints(const std::vector<SurfacePoint>& points);
 
   void unlinkAllPatches();
 
@@ -113,7 +113,7 @@ private:
   std::vector<SurfacePoint> m_patchAxisDense;
 
   std::vector<params> m_parameterizedBoundary;
-  std::vector<SurfacePoint> m_patchBoundary;
+  std::vector<SurfacePoint> m_patchPoints;
 
   // To support hierarchal organization
   SurfacePatch* m_parent;
