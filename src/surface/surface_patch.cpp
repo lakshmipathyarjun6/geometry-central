@@ -101,9 +101,9 @@ void SurfacePatch::createDefaultAxis() {
   computeAxisAnglesAndDistances();
 }
 
-void SurfacePatch::get(std::vector<SurfacePoint>& axis, std::vector<SurfacePoint>& boundary) {
+void SurfacePatch::get(std::vector<SurfacePoint>& axis, std::vector<SurfacePoint>& points) {
   axis = m_patchAxisSparse;
-  boundary = m_patchPoints;
+  points = m_patchPoints;
 }
 
 std::vector<std::string> SurfacePatch::getAxisSerialized() {

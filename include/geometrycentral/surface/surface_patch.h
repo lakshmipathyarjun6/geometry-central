@@ -36,7 +36,7 @@ public:
 
   void createDefaultAxis();
 
-  void get(std::vector<SurfacePoint>& axis, std::vector<SurfacePoint>& boundary);
+  void get(std::vector<SurfacePoint>& axis, std::vector<SurfacePoint>& points);
 
   std::vector<std::string> getAxisSerialized();
 
