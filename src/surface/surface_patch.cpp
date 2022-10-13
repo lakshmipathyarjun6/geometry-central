@@ -159,23 +159,6 @@ std::vector<std::string> SurfacePatch::getBoundarySerialized() { return getSeria
 
 Vector2 SurfacePatch::getInitDir() { return m_initDir; }
 
-void SurfacePatch::invertAxisOrder() {
-  reverse(m_patchAxisSparse.begin(), m_patchAxisSparse.end());
-
-  m_startPoint = m_patchAxisSparse[0];
-  computeInitialAxisDirection();
-  constructDenselySampledAxis();
-  computeAxisAnglesAndDistances();
-}
-
-void SurfacePatch::invertBoundaryOrder() { reverse(m_parameterizedPoints.begin(), m_parameterizedPoints.end()); }
-
-void SurfacePatch::leftShiftOrder() {
-  params firstElem = m_parameterizedPoints[0];
-  m_parameterizedPoints.push_back(firstElem);
-  m_parameterizedPoints.erase(m_parameterizedPoints.begin());
-}
-
 void SurfacePatch::linkPatch(std::string childName, SurfacePatch* child) {
   m_children[childName] = child;
   child->m_parent = this;
@@ -350,12 +333,6 @@ void SurfacePatch::reconstructBoundary() {
   }
 
   m_patchPoints.insert(m_patchPoints.begin(), constructedBoundary.begin(), constructedBoundary.end());
-}
-
-void SurfacePatch::rightShiftOrder() {
-  params lastElem = m_parameterizedPoints[m_parameterizedPoints.size() - 1];
-  m_parameterizedPoints.insert(m_parameterizedPoints.begin(), lastElem);
-  m_parameterizedPoints.pop_back();
 }
 
 void SurfacePatch::rotateAxis(Vector2 newDir) {
@@ -640,32 +617,6 @@ void SurfacePatch::constructDenselySampledAxis() {
 
   m_patchAxisDense = denseCurve;
   m_patchAxisSparseDenseIdx = idxIntoDense;
-}
-
-/*
- * Evaluate a log map (given at vertices) at any point.
- * Just linearly interpolate.
- */
-Vector2 SurfacePatch::evaluateLogMap(const VertexData<Vector2>& logMap, const SurfacePoint& pt) {
-
-  if (pt.type == SurfacePointType::Vertex) {
-    return logMap[pt.vertex];
-  }
-  if (pt.type == SurfacePointType::Edge) {
-    Edge e = pt.edge;
-    double t = pt.tEdge;
-    return (1.0 - t) * logMap[e.firstVertex()] + t * logMap[e.secondVertex()];
-  }
-  // face
-  Face f = pt.face;
-  Vector3 fCoords = pt.faceCoords;
-  Vector2 result = {0, 0};
-  size_t i = 0;
-  for (Vertex v : f.adjacentVertices()) {
-    result += fCoords[i] * logMap[v];
-    i++;
-  }
-  return result;
 }
 
 /*
