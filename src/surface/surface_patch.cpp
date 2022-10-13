@@ -155,7 +155,7 @@ std::vector<std::string> SurfacePatch::getAxisSerialized() {
   return result;
 }
 
-std::vector<std::string> SurfacePatch::getBoundarySerialized() { return getSerializedSurfacePoints(m_patchPoints); }
+std::vector<std::string> SurfacePatch::getPatchSerialized() { return getSerializedSurfacePoints(m_patchPoints); }
 
 Vector2 SurfacePatch::getInitDir() { return m_initDir; }
 
@@ -311,14 +311,14 @@ void SurfacePatch::propagateChildUpdates() {
   }
 }
 
-void SurfacePatch::reconstructBoundary() {
+void SurfacePatch::reconstructPatch() {
   m_patchPoints.clear();
 
   // Use distances/directions to reconstruct patches from sparse axis
   SurfacePoint pathEndpoint;
   TraceGeodesicResult tracedGeodesic;
 
-  std::vector<SurfacePoint> constructedBoundary(m_parameterizedPoints.size());
+  std::vector<SurfacePoint> constructedPatch(m_parameterizedPoints.size());
 
   for (size_t i = 0; i < m_parameterizedPoints.size(); i++) {
     params p = m_parameterizedPoints[i];
@@ -329,10 +329,10 @@ void SurfacePatch::reconstructBoundary() {
     dir *= axisBasis;
     tracedGeodesic = traceGeodesic(*(m_geometry), m_patchAxisSparse[p.cp], Vector2::fromComplex(p.dist * dir));
     pathEndpoint = tracedGeodesic.endPoint;
-    constructedBoundary[i] = pathEndpoint;
+    constructedPatch[i] = pathEndpoint;
   }
 
-  m_patchPoints.insert(m_patchPoints.begin(), constructedBoundary.begin(), constructedBoundary.end());
+  m_patchPoints.insert(m_patchPoints.begin(), constructedPatch.begin(), constructedPatch.end());
 }
 
 void SurfacePatch::rotateAxis(Vector2 newDir) {
@@ -379,16 +379,16 @@ void SurfacePatch::transfer(SurfacePatch* target, const SurfacePoint& targetMesh
   // Recreate boundary only if boundary has been parameterized on source domain
   // Need to also invert boundary order (unintuitive)
   if (m_parameterizedPoints.size() > 0) {
-    std::vector<params> targetParameterizedBoundary(m_parameterizedPoints.size());
+    std::vector<params> targetParameterizedPatch(m_parameterizedPoints.size());
 
     for (int i = 0; i < m_parameterizedPoints.size(); i++) {
       params sourceParams = m_parameterizedPoints[i];
       params targetParams = {sourceParams.cp, sourceParams.dist, -sourceParams.dir};
-      targetParameterizedBoundary[i] = targetParams;
+      targetParameterizedPatch[i] = targetParams;
     }
 
-    target->m_parameterizedPoints = targetParameterizedBoundary;
-    target->reconstructBoundary();
+    target->m_parameterizedPoints = targetParameterizedPatch;
+    target->reconstructPatch();
   }
 }
 
@@ -415,7 +415,7 @@ void SurfacePatch::transferContactPointsOnly(SurfacePatch* target) {
     target->m_parameterizedPoints.insert(target->m_parameterizedPoints.begin(), m_parameterizedPoints.begin(),
                                          m_parameterizedPoints.end());
 
-    target->reconstructBoundary();
+    target->reconstructPatch();
   }
 }
 

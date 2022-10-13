@@ -41,7 +41,7 @@ public:
 
   std::vector<std::string> getAxisSerialized();
 
-  std::vector<std::string> getBoundarySerialized();
+  std::vector<std::string> getPatchSerialized();
 
   Vector2 getInitDir();
 
@@ -51,7 +51,7 @@ public:
 
   void propagateChildUpdates();
 
-  void reconstructBoundary();
+  void reconstructPatch();
 
   void rotateAxis(Vector2 newDir);
 
