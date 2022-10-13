@@ -1,6 +1,7 @@
 #pragma once
 
 #include "geometrycentral/numerical/linear_solvers.h"
+#include "geometrycentral/surface/exact_geodesics.h"
 #include "geometrycentral/surface/flip_geodesics.h"
 #include "geometrycentral/surface/heat_method_distance.h"
 #include "geometrycentral/surface/intrinsic_geometry_interface.h"
@@ -25,7 +26,7 @@ class SurfacePatch {
 
 public:
   // constructors
-  SurfacePatch(ManifoldSurfaceMesh* mesh, VertexPositionGeometry* geometry,
+  SurfacePatch(ManifoldSurfaceMesh* mesh, VertexPositionGeometry* geometry, GeodesicAlgorithmExact* mmpSolver,
                HeatMethodDistanceSolver* distanceHeatSolver, VectorHeatMethodSolver* vectorHeatSolver);
 
   void computeGlobalAxisTransport();
@@ -66,6 +67,11 @@ public:
 
   void transfer(SurfacePatch* target, const SurfacePoint& targetMeshStart, const SurfacePoint& targetMeshDirEndpoit);
 
+  void transferAxisOnly(SurfacePatch* target, const SurfacePoint& targetMeshStart,
+                        const SurfacePoint& targetMeshDirEndpoint);
+
+  void transferContactPointsOnly(SurfacePatch* target);
+
   void translate(const Vertex& newStartVertex);
 
   void setPatchAxis(const std::vector<SurfacePoint>& axis, const std::vector<std::complex<double>>& dirs,
@@ -83,6 +89,9 @@ private:
   void computeAxisAnglesAndDistances();
 
   std::vector<SurfacePoint> connectPointsWithGeodesic(const SurfacePoint& pt1, const SurfacePoint& pt2);
+
+  std::vector<SurfacePoint> connectPointsWithGeodesicMMP(const SurfacePoint& pt1, const SurfacePoint& pt2,
+                                                         double& distance);
 
   void constructDenselySampledAxis();
 
@@ -103,6 +112,7 @@ private:
   std::unique_ptr<VertexPositionGeometry> m_geometry;
   std::unique_ptr<HeatMethodDistanceSolver> m_distanceHeatSolver;
   std::unique_ptr<VectorHeatMethodSolver> m_vectorHeatSolver;
+  std::unique_ptr<GeodesicAlgorithmExact> m_mmpSolver;
 
   std::vector<SurfacePoint> m_patchAxisSparse;
   std::vector<std::complex<double>> m_patchAxisSparseAngles;
@@ -112,7 +122,7 @@ private:
   VertexData<Vector2> m_axisDirectionTable;
   std::vector<SurfacePoint> m_patchAxisDense;
 
-  std::vector<params> m_paramerizedPoints;
+  std::vector<params> m_parameterizedPoints;
   std::vector<SurfacePoint> m_patchPoints;
 
   // To support hierarchal organization

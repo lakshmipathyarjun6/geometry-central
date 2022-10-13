@@ -3,10 +3,12 @@
 int mod(int a, int b) { return (b + (a % b)) % b; }
 
 SurfacePatch::SurfacePatch(ManifoldSurfaceMesh* mesh, VertexPositionGeometry* geometry,
-                           HeatMethodDistanceSolver* distanceHeatSolver, VectorHeatMethodSolver* vectorHeatSolver) {
+                           GeodesicAlgorithmExact* mmpSolver, HeatMethodDistanceSolver* distanceHeatSolver,
+                           VectorHeatMethodSolver* vectorHeatSolver) {
   m_mesh.reset(mesh);
   m_geometry.reset(geometry);
   m_distanceHeatSolver.reset(distanceHeatSolver);
+  m_mmpSolver.reset(mmpSolver);
   m_vectorHeatSolver.reset(vectorHeatSolver);
 }
 
@@ -166,12 +168,12 @@ void SurfacePatch::invertAxisOrder() {
   computeAxisAnglesAndDistances();
 }
 
-void SurfacePatch::invertBoundaryOrder() { reverse(m_paramerizedPoints.begin(), m_paramerizedPoints.end()); }
+void SurfacePatch::invertBoundaryOrder() { reverse(m_parameterizedPoints.begin(), m_parameterizedPoints.end()); }
 
 void SurfacePatch::leftShiftOrder() {
-  params firstElem = m_paramerizedPoints[0];
-  m_paramerizedPoints.push_back(firstElem);
-  m_paramerizedPoints.erase(m_paramerizedPoints.begin());
+  params firstElem = m_parameterizedPoints[0];
+  m_parameterizedPoints.push_back(firstElem);
+  m_parameterizedPoints.erase(m_parameterizedPoints.begin());
 }
 
 void SurfacePatch::linkPatch(std::string childName, SurfacePatch* child) {
@@ -231,9 +233,7 @@ void SurfacePatch::linkPatch(std::string childName, SurfacePatch* child) {
 }
 
 void SurfacePatch::parameterizePatch() {
-  m_paramerizedPoints.clear();
-
-  VertexData<double> distToSource = m_distanceHeatSolver->computeDistance(m_patchAxisSparse);
+  m_parameterizedPoints.clear();
 
   std::cout << m_patchPoints.size() << std::endl;
 
@@ -250,21 +250,23 @@ void SurfacePatch::parameterizePatch() {
   }
   VertexData<double> closestPoint = m_vectorHeatSolver->extendScalar(zippedDistances);
 
-  std::vector<params> bdyPtToParam(m_patchPoints.size());
+  std::vector<params> ptToParam(m_patchPoints.size());
+
+  double distance;
 
   for (size_t i = 0; i < m_patchPoints.size(); i++) {
-    SurfacePoint bdyPoint = m_patchPoints[i];
-    double diffusedVal = evaluateVertexDataAtPoint(closestPoint, bdyPoint);
+    SurfacePoint patchPoint = m_patchPoints[i];
+    double diffusedVal = patchPoint.interpolate(closestPoint);
     size_t cp = indexOfClosestPointOnAxis(diffusedVal, zippedDistances);
     SurfacePoint axisPoint = m_patchAxisSparse[cp];
-    VertexData<Vector2> logMap = m_vectorHeatSolver->computeLogMap(axisPoint);
-    std::complex<double> dir = evaluateLogMap(logMap, bdyPoint);
-    double logMapDist = std::abs(dir);
+
+    std::vector<SurfacePoint> geodesic = connectPointsWithGeodesicMMP(axisPoint, patchPoint, distance);
+    std::complex<double> dir = localDir(axisPoint, geodesic[1]);
 
     // Edge case: if distance is 0, then point is on axis
     // In which case just assign an arbitrary direction and let the distance
     // 0 out to prevent divide by 0 complaints
-    if (logMapDist <= 0) {
+    if (distance <= 0) {
       std::cout << "WARNING (DON'T PANIC): point found to lie on axis" << std::endl;
       dir = std::complex<double>{1.0, 0.0};
     }
@@ -274,13 +276,12 @@ void SurfacePatch::parameterizePatch() {
     std::complex<double> axisBasis = axisTangent(m_patchAxisSparseDenseIdx[cp], m_patchAxisDense);
     axisBasis /= std::abs(axisBasis);
     dir = dir / axisBasis;
-    double heatDist = evaluateVertexDataAtPoint(distToSource, bdyPoint);
-    // TODO: Also try log map dist
-    params prms = {cp, heatDist, -dir};
-    bdyPtToParam[i] = prms;
+
+    params prms = {cp, distance, dir};
+    ptToParam[i] = prms;
   }
 
-  m_paramerizedPoints.insert(m_paramerizedPoints.begin(), bdyPtToParam.begin(), bdyPtToParam.end());
+  m_parameterizedPoints.insert(m_parameterizedPoints.begin(), ptToParam.begin(), ptToParam.end());
 }
 
 void SurfacePatch::propagateChildUpdates() {
@@ -334,10 +335,10 @@ void SurfacePatch::reconstructBoundary() {
   SurfacePoint pathEndpoint;
   TraceGeodesicResult tracedGeodesic;
 
-  std::vector<SurfacePoint> constructedBoundary(m_paramerizedPoints.size());
+  std::vector<SurfacePoint> constructedBoundary(m_parameterizedPoints.size());
 
-  for (size_t i = 0; i < m_paramerizedPoints.size(); i++) {
-    params p = m_paramerizedPoints[i];
+  for (size_t i = 0; i < m_parameterizedPoints.size(); i++) {
+    params p = m_parameterizedPoints[i];
     std::complex<double> dir = p.dir;
     std::complex<double> axisBasis = axisTangent(m_patchAxisSparseDenseIdx[p.cp], m_patchAxisDense);
     dir /= std::abs(dir);
@@ -352,9 +353,9 @@ void SurfacePatch::reconstructBoundary() {
 }
 
 void SurfacePatch::rightShiftOrder() {
-  params lastElem = m_paramerizedPoints[m_paramerizedPoints.size() - 1];
-  m_paramerizedPoints.insert(m_paramerizedPoints.begin(), lastElem);
-  m_paramerizedPoints.pop_back();
+  params lastElem = m_parameterizedPoints[m_parameterizedPoints.size() - 1];
+  m_parameterizedPoints.insert(m_parameterizedPoints.begin(), lastElem);
+  m_parameterizedPoints.pop_back();
 }
 
 void SurfacePatch::rotateAxis(Vector2 newDir) {
@@ -400,16 +401,43 @@ void SurfacePatch::transfer(SurfacePatch* target, const SurfacePoint& targetMesh
   // Compute distances and directions on S1, then reconstruct contact on S2
   // Recreate boundary only if boundary has been parameterized on source domain
   // Need to also invert boundary order (unintuitive)
-  if (m_paramerizedPoints.size() > 0) {
-    std::vector<params> targetParameterizedBoundary(m_paramerizedPoints.size());
+  if (m_parameterizedPoints.size() > 0) {
+    std::vector<params> targetParameterizedBoundary(m_parameterizedPoints.size());
 
-    for (int i = 0; i < m_paramerizedPoints.size(); i++) {
-      params sourceParams = m_paramerizedPoints[i];
+    for (int i = 0; i < m_parameterizedPoints.size(); i++) {
+      params sourceParams = m_parameterizedPoints[i];
       params targetParams = {sourceParams.cp, sourceParams.dist, -sourceParams.dir};
       targetParameterizedBoundary[i] = targetParams;
     }
 
-    target->m_paramerizedPoints = targetParameterizedBoundary;
+    target->m_parameterizedPoints = targetParameterizedBoundary;
+    target->reconstructBoundary();
+  }
+}
+
+void SurfacePatch::transferAxisOnly(SurfacePatch* target, const SurfacePoint& targetMeshStart,
+                                    const SurfacePoint& targetMeshDirEndpoint) {
+  // All angles and distances should be the same, save for the first one (which is ignored)
+  target->m_patchAxisSparseAngles = m_patchAxisSparseAngles;
+  target->m_patchAxisSparseDistances.insert(target->m_patchAxisSparseDistances.end(),
+                                            m_patchAxisSparseDistances.begin(), m_patchAxisSparseDistances.end());
+
+  target->m_startPoint = targetMeshStart;
+  target->m_initDir = target->localDir(targetMeshStart, targetMeshDirEndpoint);
+  target->traceAxis();
+}
+
+void SurfacePatch::transferContactPointsOnly(SurfacePatch* target) {
+  // Compute distances and directions on S1, then reconstruct contact on S2
+  // Recreate boundary only if boundary has been parameterized on source domain
+  // Invert if correspondence should result in mirror image
+
+  if (m_parameterizedPoints.size() > 0) {
+    target->m_parameterizedPoints.clear();
+
+    target->m_parameterizedPoints.insert(target->m_parameterizedPoints.begin(), m_parameterizedPoints.begin(),
+                                         m_parameterizedPoints.end());
+
     target->reconstructBoundary();
   }
 }
@@ -541,6 +569,7 @@ void SurfacePatch::computeAxisAnglesAndDistances() {
  * Given two SurfacePoints, connect them with a geodesic if needed (if they aren't in the same face.)
  * Return a vector of SurfacePoints making up this geodesic, with the endpoints excluded.
  */
+
 std::vector<SurfacePoint> SurfacePatch::connectPointsWithGeodesic(const SurfacePoint& pt1, const SurfacePoint& pt2) {
 
   if (sharedFace(pt1, pt2) != Face()) return std::vector<SurfacePoint>();
@@ -554,6 +583,28 @@ std::vector<SurfacePoint> SurfacePatch::connectPointsWithGeodesic(const SurfaceP
   std::vector<SurfacePoint> fullPath = paths[0];
   assert(fullPath.size() > 2);
   std::vector<SurfacePoint> path(fullPath.begin() + 1, fullPath.begin() + fullPath.size() - 1);
+  return path;
+}
+
+std::vector<SurfacePoint> SurfacePatch::connectPointsWithGeodesicMMP(const SurfacePoint& pt1, const SurfacePoint& pt2,
+                                                                     double& distance) {
+
+  // If the source and target SurfacePoints already share a common face, no need to run the algorithm.
+  if (sharedFace(pt1, pt2) != Face()) {
+    VertexData<Vector3>& vertexPositions = m_geometry->vertexPositions;
+    distance = (pt1.interpolate(vertexPositions) - pt2.interpolate(vertexPositions)).norm();
+    return {pt1, pt2};
+  }
+
+  // Otherwise, use MMP to compute exact geodesic paths.
+  SurfacePoint source = pt1;
+  double max_propagation_distance = GEODESIC_INF;
+  std::vector<SurfacePoint> stop_points = {pt2};
+  m_mmpSolver->propagate(source, max_propagation_distance, stop_points);
+  distance = m_mmpSolver->getDistance(pt2);
+  std::vector<SurfacePoint> path = m_mmpSolver->traceBack(pt2); // gets path from query point to source
+  std::reverse(path.begin(), path.end());
+
   return path;
 }
 
