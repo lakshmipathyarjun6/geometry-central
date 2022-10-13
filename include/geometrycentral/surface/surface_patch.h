@@ -45,12 +45,6 @@ public:
 
   Vector2 getInitDir();
 
-  void invertAxisOrder();
-
-  void invertBoundaryOrder();
-
-  void leftShiftOrder();
-
   void linkPatch(std::string childName, SurfacePatch* child);
 
   void parameterizePatch();
@@ -58,8 +52,6 @@ public:
   void propagateChildUpdates();
 
   void reconstructBoundary();
-
-  void rightShiftOrder();
 
   void rotateAxis(Vector2 newDir);
 
@@ -94,8 +86,6 @@ private:
                                                          double& distance);
 
   void constructDenselySampledAxis();
-
-  Vector2 evaluateLogMap(const VertexData<Vector2>& logMap, const SurfacePoint& pt);
 
   double evaluateVertexDataAtPoint(const VertexData<double>& u, const SurfacePoint& pt);
 
