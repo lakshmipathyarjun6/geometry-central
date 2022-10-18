@@ -323,12 +323,22 @@ void SurfacePatch::reconstructPatch() {
   for (size_t i = 0; i < m_parameterizedPoints.size(); i++) {
     params p = m_parameterizedPoints[i];
     std::complex<double> dir = p.dir;
+    double distance = p.dist;
+    SurfacePoint startPoint = m_patchAxisSparse[p.cp];
+
     std::complex<double> axisBasis = axisTangent(m_patchAxisSparseDenseIdx[p.cp], m_patchAxisDense);
     dir /= std::abs(dir);
     axisBasis /= std::abs(axisBasis);
     dir *= axisBasis;
-    tracedGeodesic = traceGeodesic(*(m_geometry), m_patchAxisSparse[p.cp], Vector2::fromComplex(p.dist * dir));
-    pathEndpoint = tracedGeodesic.endPoint;
+
+    // Handle distance = 0 edge cases
+    if (distance <= 0) {
+      pathEndpoint = startPoint;
+    } else {
+      tracedGeodesic = traceGeodesic(*(m_geometry), m_patchAxisSparse[p.cp], Vector2::fromComplex(p.dist * dir));
+      pathEndpoint = tracedGeodesic.endPoint;
+    }
+
     constructedPatch[i] = pathEndpoint;
   }
 
