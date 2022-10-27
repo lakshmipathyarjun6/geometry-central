@@ -377,32 +377,38 @@ void SurfacePatch::setBulkTransferParams(SurfacePatch* sourcePatch, std::string 
 void SurfacePatch::transfer(SurfacePatch* target, const SurfacePoint& targetMeshStart,
                             const SurfacePoint& targetMeshDirEndpoit) {
   // All angles and distances should be the same, save for the first one (which is ignored)
-  target->m_patchAxisSparseAngles = m_patchAxisSparseAngles;
+
+  // Note that we deliberately adjust the phasor multiplier since we want the MIRROR image
+  // to be generated on the target domain
+
+  target->m_patchAxisSparseAngles.clear();
+  target->m_patchAxisSparseDistances.clear();
+
   target->m_patchAxisSparseDistances.insert(target->m_patchAxisSparseDistances.end(),
                                             m_patchAxisSparseDistances.begin(), m_patchAxisSparseDistances.end());
 
   target->m_startPoint = targetMeshStart;
   target->m_initDir = target->localDir(targetMeshStart, targetMeshDirEndpoit);
+
+  for (int i = 0; i < m_patchAxisSparseAngles.size(); i++) {
+    std::complex<double> adjustedDir = {m_patchAxisSparseAngles[i].real(), -m_patchAxisSparseAngles[i].imag()};
+    target->m_patchAxisSparseAngles.push_back(adjustedDir);
+  }
+
   target->traceAxis();
 
   // Compute distances and directions on S1, then reconstruct contact on S2
-  // Recreate boundary only if boundary has been parameterized on source domain
-  // Need to also invert boundary order (unintuitive)
+  // Reconstruct patch only if patch has been parameterized on source domain
+
   if (m_parameterizedPoints.size() > 0) {
-    // std::vector<params> targetParameterizedPatch(m_parameterizedPoints.size());
-
-    // for (int i = 0; i < m_parameterizedPoints.size(); i++) {
-    //   params sourceParams = m_parameterizedPoints[i];
-    //   params targetParams = {sourceParams.cp, sourceParams.dist, -sourceParams.dir};
-    //   targetParameterizedPatch[i] = targetParams;
-    // }
-
-    // target->m_parameterizedPoints = targetParameterizedPatch;
-
     target->m_parameterizedPoints.clear();
 
-    target->m_parameterizedPoints.insert(target->m_parameterizedPoints.begin(), m_parameterizedPoints.begin(),
-                                         m_parameterizedPoints.end());
+    for (int i = 0; i < m_parameterizedPoints.size(); i++) {
+      params sourceParams = m_parameterizedPoints[i];
+      std::complex<double> adjustedDir = {sourceParams.dir.real(), -sourceParams.dir.imag()};
+      params targetParams = {sourceParams.cp, sourceParams.dist, adjustedDir};
+      target->m_parameterizedPoints.push_back(targetParams);
+    }
 
     target->reconstructPatch();
   }
