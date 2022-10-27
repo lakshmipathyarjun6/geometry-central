@@ -37,9 +37,13 @@ public:
 
   void createDefaultAxis();
 
+  void deformAxis(int index, std::complex<double> newDir);
+
   void get(std::vector<SurfacePoint>& axis, std::vector<SurfacePoint>& points);
 
   std::vector<std::string> getAxisSerialized();
+
+  std::complex<double> getDirAtAxisIndex(int index);
 
   std::vector<std::string> getPatchSerialized();
 
