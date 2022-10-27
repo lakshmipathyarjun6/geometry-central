@@ -389,15 +389,21 @@ void SurfacePatch::transfer(SurfacePatch* target, const SurfacePoint& targetMesh
   // Recreate boundary only if boundary has been parameterized on source domain
   // Need to also invert boundary order (unintuitive)
   if (m_parameterizedPoints.size() > 0) {
-    std::vector<params> targetParameterizedPatch(m_parameterizedPoints.size());
+    // std::vector<params> targetParameterizedPatch(m_parameterizedPoints.size());
 
-    for (int i = 0; i < m_parameterizedPoints.size(); i++) {
-      params sourceParams = m_parameterizedPoints[i];
-      params targetParams = {sourceParams.cp, sourceParams.dist, -sourceParams.dir};
-      targetParameterizedPatch[i] = targetParams;
-    }
+    // for (int i = 0; i < m_parameterizedPoints.size(); i++) {
+    //   params sourceParams = m_parameterizedPoints[i];
+    //   params targetParams = {sourceParams.cp, sourceParams.dist, -sourceParams.dir};
+    //   targetParameterizedPatch[i] = targetParams;
+    // }
 
-    target->m_parameterizedPoints = targetParameterizedPatch;
+    // target->m_parameterizedPoints = targetParameterizedPatch;
+
+    target->m_parameterizedPoints.clear();
+
+    target->m_parameterizedPoints.insert(target->m_parameterizedPoints.begin(), m_parameterizedPoints.begin(),
+                                         m_parameterizedPoints.end());
+
     target->reconstructPatch();
   }
 }
