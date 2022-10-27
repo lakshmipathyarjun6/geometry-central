@@ -103,6 +103,12 @@ void SurfacePatch::createDefaultAxis() {
   computeAxisAnglesAndDistances();
 }
 
+void SurfacePatch::deformAxis(int index, std::complex<double> newDir) {
+  assert(index == m_patchAxisSparseAngles.size());
+  m_patchAxisSparseAngles[index] = newDir;
+  traceAxis();
+}
+
 void SurfacePatch::get(std::vector<SurfacePoint>& axis, std::vector<SurfacePoint>& points) {
   axis = m_patchAxisSparse;
   points = m_patchPoints;
@@ -153,6 +159,11 @@ std::vector<std::string> SurfacePatch::getAxisSerialized() {
   }
 
   return result;
+}
+
+std::complex<double> SurfacePatch::getDirAtAxisIndex(int index) {
+  assert(index == m_patchAxisSparseAngles.size());
+  return m_patchAxisSparseAngles[index];
 }
 
 std::vector<std::string> SurfacePatch::getPatchSerialized() { return getSerializedSurfacePoints(m_patchPoints); }
@@ -728,6 +739,8 @@ size_t SurfacePatch::indexOfClosestPointOnAxis(double diffusedVal,
     }
   }
   assert(false); // should never get here
+
+  return -1;
 }
 
 /*
