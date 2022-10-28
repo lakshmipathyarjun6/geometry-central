@@ -39,6 +39,7 @@ SET(SRCS
   surface/signpost_intrinsic_triangulation.cpp
   surface/integer_coordinates_intrinsic_triangulation.cpp
   surface/common_subdivision.cpp
+  surface/surface_patch.cpp
   surface/surface_point.cpp
   surface/fast_marching_method.cpp
   surface/uniformize.cpp

@@ -512,5 +512,20 @@ VertexData<Vector2> VectorHeatMethodSolver::computeLogMap(const SurfacePoint& so
   return VertexData<Vector2>();
 }
 
+// TODO: Remove - only for backwards compatibility
+std::vector<Vector2> VectorHeatMethodSolver::getCartesianCoords() {
+  std::vector<Vector2> result;
+
+  for (int i = 0; i < mesh.nVertices(); i++) {
+    double dist = distance[i];
+    double angle = angles[i];
+    Vector2 coord = Vector2{dist, angle};
+
+    result.push_back(coord);
+  }
+
+  return result;
+}
+
 } // namespace surface
 } // namespace geometrycentral
