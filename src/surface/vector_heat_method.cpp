@@ -512,6 +512,7 @@ VertexData<Vector2> VectorHeatMethodSolver::computeLogMap(const SurfacePoint& so
   return VertexData<Vector2>();
 }
 
+// TODO: Remove - only for backwards compatibility
 std::vector<Vector2> VectorHeatMethodSolver::getCartesianCoords() {
   std::vector<Vector2> result;
 
@@ -525,9 +526,6 @@ std::vector<Vector2> VectorHeatMethodSolver::getCartesianCoords() {
 
   return result;
 }
-
-VertexData<Vector2> VectorHeatMethodSolver::getHorizontalTangentVectors() { return horizontalTangentVecs; }
-VertexData<Vector2> VectorHeatMethodSolver::getRadialTangentVectors() { return radialTangentVecs; }
 
 } // namespace surface
 } // namespace geometrycentral

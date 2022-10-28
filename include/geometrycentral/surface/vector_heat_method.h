@@ -42,10 +42,7 @@ public:
                                     bool invert = false);
   VertexData<Vector2> computeLogMap(const SurfacePoint& sourceP);
 
-  VertexData<Vector2> getHorizontalTangentVectors();
-  VertexData<Vector2> getRadialTangentVectors();
   std::vector<Vector2> getCartesianCoords();
-
 
   // === Options and parameters
   const double tCoef; // the time parameter used for heat flow, measured as time = tCoef * mean_edge_length^2

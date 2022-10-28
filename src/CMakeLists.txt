@@ -53,6 +53,7 @@ SET(SRCS
   surface/transfer_functions.cpp
   surface/quadric_error_simplification.cpp
   surface/subdivide.cpp
+  surface/poisson_disk_sampler.cpp
   #surface/detect_symmetry.cpp
   #surface/mesh_ray_tracer.cpp
   
@@ -117,6 +118,7 @@ SET(HEADERS
   ${INCLUDE_ROOT}/surface/mesh_graph_algorithms.h
   ${INCLUDE_ROOT}/surface/mesh_ray_tracer.h
   ${INCLUDE_ROOT}/surface/parameterize.h
+  ${INCLUDE_ROOT}/surface/poisson_disk_sampler.h
   ${INCLUDE_ROOT}/surface/quadric_error_simplification.h
   ${INCLUDE_ROOT}/surface/rich_surface_mesh_data.h
   ${INCLUDE_ROOT}/surface/rich_surface_mesh_data.ipp
@@ -132,6 +134,8 @@ SET(HEADERS
   ${INCLUDE_ROOT}/surface/surface_patch.h
   ${INCLUDE_ROOT}/surface/surface_point.h
   ${INCLUDE_ROOT}/surface/surface_point.ipp
+  ${INCLUDE_ROOT}/surface/barycentric_vector.h
+  ${INCLUDE_ROOT}/surface/barycentric_vector.ipp
   ${INCLUDE_ROOT}/surface/surgery.h
   ${INCLUDE_ROOT}/surface/trace_geodesic.h
   ${INCLUDE_ROOT}/surface/transfer_functions.h
@@ -169,9 +173,10 @@ target_include_directories(geometry-central PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/
 target_link_libraries(geometry-central PUBLIC ${GC_DEP_LIBS})
 
 # Set compiler properties for the library
-set_property(TARGET geometry-central PROPERTY CXX_STANDARD 11)
+target_compile_features(geometry-central PUBLIC cxx_std_11)
 set_target_properties(geometry-central PROPERTIES
   CXX_STANDARD_REQUIRED TRUE
+  CXX_EXTENSIONS OFF
   POSITION_INDEPENDENT_CODE ON
 )
 target_compile_definitions(geometry-central PUBLIC NOMINMAX _USE_MATH_DEFINES)
@@ -181,4 +186,9 @@ if(GC_HAVE_SUITESPARSE)
   target_compile_definitions(geometry-central PUBLIC GC_HAVE_SUITESPARSE)
   target_include_directories(geometry-central PRIVATE ${SUITESPARSE_INCLUDE_DIRS})
   target_link_libraries(geometry-central PRIVATE ${SUITESPARSE_LIBRARIES})
+endif()
+
+# Export symbols if DLL is requested
+if(MSVC AND BUILD_SHARED_LIBS)
+  set_target_properties(geometry-central PROPERTIES WINDOWS_EXPORT_ALL_SYMBOLS ON)
 endif()
