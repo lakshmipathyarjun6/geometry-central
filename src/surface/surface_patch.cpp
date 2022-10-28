@@ -104,7 +104,7 @@ void SurfacePatch::createDefaultAxis() {
 }
 
 void SurfacePatch::deformAxis(int index, std::complex<double> newDir) {
-  assert(index == m_patchAxisSparseAngles.size());
+  assert(index < m_patchAxisSparseAngles.size());
   m_patchAxisSparseAngles[index] = newDir;
   traceAxis();
 }
@@ -162,7 +162,7 @@ std::vector<std::string> SurfacePatch::getAxisSerialized() {
 }
 
 std::complex<double> SurfacePatch::getDirAtAxisIndex(int index) {
-  assert(index == m_patchAxisSparseAngles.size());
+  assert(index < m_patchAxisSparseAngles.size());
   return m_patchAxisSparseAngles[index];
 }
 
