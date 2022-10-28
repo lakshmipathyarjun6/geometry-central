@@ -80,6 +80,8 @@ public:
   void unlinkPatch(std::string childName);
 
 private:
+  bool approxEqual(const SurfacePoint& pA, const SurfacePoint& pB);
+
   std::complex<double> axisTangent(size_t idx, const std::vector<SurfacePoint>& axis);
 
   void computeAxisAnglesAndDistances();
@@ -99,6 +101,8 @@ private:
                                    const std::vector<std::tuple<SurfacePoint, double>>& zippedDistances);
 
   Vector2 localDir(const SurfacePoint& pt1, const SurfacePoint& pt2);
+
+  std::vector<SurfacePoint> pruneApproxEqualEntries(const std::vector<SurfacePoint>& source);
 
   void traceAxis();
 

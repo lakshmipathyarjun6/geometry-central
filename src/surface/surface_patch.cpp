@@ -93,7 +93,7 @@ void SurfacePatch::createDefaultAxis() {
 
   std::unique_ptr<FlipEdgeNetwork> edgeNetwork;
   edgeNetwork = FlipEdgeNetwork::constructFromDijkstraPath(*m_mesh, *m_geometry, pt1.vertex, pt2.vertex);
-
+  edgeNetwork->iterativeShorten();
   std::vector<std::vector<SurfacePoint>> paths = edgeNetwork->getPathPolyline();
 
   m_patchAxisSparse = paths[0];
@@ -255,7 +255,10 @@ void SurfacePatch::parameterizePatch() {
     SurfacePoint axisPoint = m_patchAxisSparse[cp];
 
     std::vector<SurfacePoint> geodesic = connectPointsWithGeodesicMMP(axisPoint, patchPoint, distance);
-    std::complex<double> dir = localDir(axisPoint, geodesic[1]);
+    std::vector<SurfacePoint> prunedGeodesic = pruneApproxEqualEntries(geodesic);
+
+    // Compute direction.
+    std::complex<double> dir = localDir(axisPoint, prunedGeodesic[1]);
 
     // Edge case: if distance is 0, then point is on axis
     // In which case just assign an arbitrary direction and let the distance
@@ -502,6 +505,24 @@ void SurfacePatch::unlinkPatch(std::string childName) {
 
 // Begin private utils
 
+bool SurfacePatch::approxEqual(const SurfacePoint& pA, const SurfacePoint& pB) {
+
+  if (pA.type != pB.type) return false;
+  double eps = 1e-5;
+  switch (pA.type) {
+  case (SurfacePointType::Vertex):
+    return pA.vertex == pB.vertex;
+    break;
+  case (SurfacePointType::Edge):
+    return pA.edge == pB.edge && abs(pA.tEdge - pB.tEdge) < eps;
+    break;
+  case (SurfacePointType::Face):
+    return pA.face == pB.face && (pA.faceCoords - pB.faceCoords).norm() < eps;
+    break;
+  }
+  throw std::logic_error("bad switch"); // shouldn't get here
+}
+
 /*
  * Compute the direction of the basis of the axis curve, at the given point.
  */
@@ -635,6 +656,7 @@ void SurfacePatch::constructDenselySampledAxis() {
   size_t N = m_patchAxisSparse.size();
 
   SurfacePoint pt1, pt2;
+  double dist;
 
   for (size_t i = 0; i < N; i++) {
     pt1 = m_patchAxisSparse[i];
@@ -643,9 +665,13 @@ void SurfacePatch::constructDenselySampledAxis() {
     idxIntoDense[i] = currIdx;
     currIdx++;
 
-    std::vector<SurfacePoint> path = connectPointsWithGeodesic(pt1, pt2);
-    denseCurve.insert(denseCurve.end(), path.begin(), path.end());
-    currIdx += path.size();
+    std::vector<SurfacePoint> path = connectPointsWithGeodesicMMP(pt1, pt2, dist);
+
+    if (path.size() > 2 && i != N - 1) {
+      denseCurve.insert(denseCurve.end(), path.begin(), path.end());
+      denseCurve.pop_back(); // to avoid double counting
+      currIdx += path.size();
+    }
   }
 
   m_patchAxisDense = denseCurve;
@@ -814,6 +840,24 @@ Vector2 SurfacePatch::localDir(const SurfacePoint& pt1, const SurfacePoint& pt2)
   Vector2 dir = {dot(globalDir, local_x), dot(globalDir, local_y)}; // not necessarily unit
   dir /= dir.norm();
   return dir;
+}
+
+std::vector<SurfacePoint> SurfacePatch::pruneApproxEqualEntries(const std::vector<SurfacePoint>& source) {
+  std::vector<SurfacePoint> result;
+
+  if (source.size() == 2) {
+    result = source;
+  } else {
+    result.push_back(source[0]);
+
+    for (const SurfacePoint& pathPt : source) {
+      if (!approxEqual(pathPt, result.back())) {
+        result.push_back(pathPt);
+      }
+    }
+  }
+
+  return result;
 }
 
 void SurfacePatch::traceAxis() {
