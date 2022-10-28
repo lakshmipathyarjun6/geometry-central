@@ -365,6 +365,11 @@ void SurfacePatch::rotateAxis(Vector2 newDir) {
   propagateChildUpdates();
 }
 
+void SurfacePatch::saveAxisStartPointAndDirection() {
+  m_savedStartPoint = m_startPoint;
+  m_savedInitDir = m_initDir;
+}
+
 void SurfacePatch::setBulkTransferParams(SurfacePatch* sourcePatch, std::string sourcePatchName,
                                          std::string destinationPatchName) {
   std::cout << "Overriding child trace params of " << destinationPatchName << " with " << sourcePatchName << std::endl;
@@ -455,9 +460,13 @@ void SurfacePatch::transferContactPointsOnly(SurfacePatch* target) {
   }
 }
 
-void SurfacePatch::translate(const Vertex& newStartVertex) {
-  m_startPoint = SurfacePoint(newStartVertex);
-  m_initDir = m_axisDirectionTable[newStartVertex];
+void SurfacePatch::translate(const SurfacePoint& newStartPoint) {
+  assert(m_savedStartPoint != SurfacePoint());
+  assert(m_savedInitDir != Vector2());
+
+  m_initDir = parallelTransport(m_savedStartPoint, newStartPoint, m_savedInitDir.arg());
+  m_startPoint = newStartPoint;
+
   traceAxis();
   propagateChildUpdates();
 }
@@ -769,6 +778,41 @@ size_t SurfacePatch::indexOfClosestPointOnAxis(double diffusedVal,
   return -1;
 }
 
+Vector2 SurfacePatch::inTangentBasis(const SurfacePoint& pA, const SurfacePoint& pB, const SurfacePoint& p) {
+
+  Vector2 vecP;
+  Vector3 posA = pA.interpolate(m_geometry->vertexPositions);
+  Vector3 posB = pB.interpolate(m_geometry->vertexPositions);
+  Vector3 vec = posB - posA;
+
+  switch (p.type) {
+  case (SurfacePointType::Vertex): {
+    Vertex vP = p.vertex;
+    Vector3 basisX = m_geometry->vertexTangentBasis[vP][0];
+    Vector3 basisY = m_geometry->vertexTangentBasis[vP][1];
+    vecP = {dot(vec, basisX), dot(vec, basisY)};
+    break;
+  }
+  case (SurfacePointType::Edge): {
+    Edge eP = p.edge;
+    Face f = sharedFace(pA, pB); // face containing vec
+    Vector3 fN = m_geometry->faceNormals[f];
+    Vector3 basisX = m_geometry->halfedgeVector(eP.halfedge()).normalize();
+    Vector3 basisY = cross(basisX, fN);
+    vecP = {dot(vec, basisX), dot(vec, basisY)};
+    break;
+  }
+  case (SurfacePointType::Face): {
+    Face fP = p.face;
+    Vector3 basisX = m_geometry->faceTangentBasis[fP][0];
+    Vector3 basisY = m_geometry->faceTangentBasis[fP][1];
+    vecP = {dot(vec, basisX), dot(vec, basisY)};
+    break;
+  }
+  }
+  return vecP.normalize();
+}
+
 /*
  * Given two SurfacePoints assumed to lie within the same face, determine the direction from pt1 to pt2, in the local
  * tangent basis of pt1.
@@ -840,6 +884,48 @@ Vector2 SurfacePatch::localDir(const SurfacePoint& pt1, const SurfacePoint& pt2)
   Vector2 dir = {dot(globalDir, local_x), dot(globalDir, local_y)}; // not necessarily unit
   dir /= dir.norm();
   return dir;
+}
+
+Vector2 SurfacePatch::parallelTransport(const SurfacePoint& startPoint, const SurfacePoint& endpoint,
+                                        double initAngle) {
+  double distance;
+
+  std::vector<SurfacePoint> path = connectPointsWithGeodesicMMP(startPoint, endpoint, distance);
+
+  m_geometry->requireTransportVectorsAlongHalfedge();
+  m_geometry->requireVertexTangentBasis();
+  m_geometry->requireFaceTangentBasis();
+  m_geometry->requireFaceNormals();
+
+  Vector2 result = Vector2::fromAngle(initAngle);
+
+  size_t nNodes = path.size();
+  for (size_t i = 0; i < nNodes - 1; i++) {
+    SurfacePoint pA = path[i];
+    SurfacePoint pB = path[i + 1];
+    assert(sharedFace(pA, pB) != Face());
+
+    if (pA.type == SurfacePointType::Face && pB.type == SurfacePointType::Face && pA.face == pB.face) continue;
+    if (pA.type == SurfacePointType::Edge && pB.type == SurfacePointType::Edge && pA.edge == pB.edge) continue;
+
+    Vector2 rot;
+    if (pA.type == SurfacePointType::Vertex && pB.type == SurfacePointType::Vertex) {
+      // Determine the halfedge between pA.vertex -> pB.vertex
+      Halfedge heAB = Halfedge();
+      for (Halfedge he : pA.vertex.outgoingHalfedges()) {
+        if (he.tipVertex() == pB.vertex) heAB = he;
+      }
+      assert(heAB != Halfedge());
+      rot = m_geometry->transportVectorsAlongHalfedge[heAB];
+    } else {
+      Vector2 vecA = inTangentBasis(pA, pB, pA);
+      Vector2 vecB = inTangentBasis(pA, pB, pB);
+      rot = vecB / vecA;
+    }
+    result = rot * result;
+  }
+
+  return result;
 }
 
 std::vector<SurfacePoint> SurfacePatch::pruneApproxEqualEntries(const std::vector<SurfacePoint>& source) {
