@@ -59,6 +59,8 @@ public:
 
   void rotateAxis(Vector2 newDir);
 
+  void saveAxisStartPointAndDirection();
+
   void setBulkTransferParams(SurfacePatch* sourcePatch, std::string sourcePatchName, std::string destinationPatchName);
 
   void transfer(SurfacePatch* target, const SurfacePoint& targetMeshStart, const SurfacePoint& targetMeshDirEndpoit);
@@ -68,7 +70,7 @@ public:
 
   void transferContactPointsOnly(SurfacePatch* target);
 
-  void translate(const Vertex& newStartVertex);
+  void translate(const SurfacePoint& newStartPoint);
 
   void setPatchAxis(const std::vector<SurfacePoint>& axis, const std::vector<std::complex<double>>& dirs,
                     const std::vector<double>& dists);
@@ -100,7 +102,11 @@ private:
   size_t indexOfClosestPointOnAxis(double diffusedVal,
                                    const std::vector<std::tuple<SurfacePoint, double>>& zippedDistances);
 
+  Vector2 inTangentBasis(const SurfacePoint& pA, const SurfacePoint& pB, const SurfacePoint& p);
+
   Vector2 localDir(const SurfacePoint& pt1, const SurfacePoint& pt2);
+
+  Vector2 parallelTransport(const SurfacePoint& startPoint, const SurfacePoint& endpoint, double initAngle);
 
   std::vector<SurfacePoint> pruneApproxEqualEntries(const std::vector<SurfacePoint>& source);
 
@@ -130,4 +136,7 @@ private:
 
   SurfacePoint m_startPoint;
   Vector2 m_initDir;
+
+  SurfacePoint m_savedStartPoint;
+  Vector2 m_savedInitDir;
 };
