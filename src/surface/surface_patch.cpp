@@ -41,6 +41,7 @@ void SurfacePatch::createCustomAxis(std::vector<Vertex>& axisPoits) {
 
   std::unique_ptr<FlipEdgeNetwork> edgeNetwork;
   edgeNetwork = FlipEdgeNetwork::constructFromPiecewiseDijkstraPath(*m_mesh, *m_geometry, axisPoits);
+  edgeNetwork->iterativeShorten();
 
   std::vector<std::vector<SurfacePoint>> paths = edgeNetwork->getPathPolyline();
 
@@ -94,6 +95,7 @@ void SurfacePatch::createDefaultAxis() {
   std::unique_ptr<FlipEdgeNetwork> edgeNetwork;
   edgeNetwork = FlipEdgeNetwork::constructFromDijkstraPath(*m_mesh, *m_geometry, pt1.vertex, pt2.vertex);
   edgeNetwork->iterativeShorten();
+
   std::vector<std::vector<SurfacePoint>> paths = edgeNetwork->getPathPolyline();
 
   m_patchAxisSparse = paths[0];
