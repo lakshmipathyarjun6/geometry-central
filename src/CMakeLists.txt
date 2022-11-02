@@ -39,6 +39,7 @@ SET(SRCS
   surface/signpost_intrinsic_triangulation.cpp
   surface/integer_coordinates_intrinsic_triangulation.cpp
   surface/common_subdivision.cpp
+  surface/surface_curve.cpp
   surface/surface_patch.cpp
   surface/surface_point.cpp
   surface/fast_marching_method.cpp
@@ -129,6 +130,7 @@ SET(HEADERS
   ${INCLUDE_ROOT}/surface/simple_polygon_mesh.h
   ${INCLUDE_ROOT}/surface/subdivide.h
   ${INCLUDE_ROOT}/surface/surface_centers.h
+  ${INCLUDE_ROOT}/surface/surface_curve.h
   ${INCLUDE_ROOT}/surface/surface_mesh.h
   ${INCLUDE_ROOT}/surface/surface_mesh.ipp
   ${INCLUDE_ROOT}/surface/surface_patch.h
