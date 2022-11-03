@@ -26,6 +26,8 @@ public:
 
   void saveStartParams();
 
+  void setPoints(const std::vector<SurfacePoint>& points);
+
   void translate(const SurfacePoint& newStartPoint);
 
 private:
