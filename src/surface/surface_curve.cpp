@@ -64,6 +64,15 @@ void SurfaceCurve::saveStartParams() {
   m_savedInitDir = m_initDir;
 }
 
+void SurfaceCurve::setPoints(const std::vector<SurfacePoint>& points) {
+  m_points = points;
+
+  m_startPoint = m_points[0];
+
+  computeInitialDirection();
+  computeAnglesAndDistances();
+}
+
 void SurfaceCurve::translate(const SurfacePoint& newStartPoint) {
   assert(m_savedStartPoint != SurfacePoint());
   assert(m_savedInitDir != Vector2());
