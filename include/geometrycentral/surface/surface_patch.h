@@ -16,10 +16,15 @@
 using namespace geometrycentral;
 using namespace geometrycentral::surface;
 
-struct params {
-  size_t cp;   // index of closest point on axis
-  double dist; // distance away from axis
-  std::complex<double> dir;
+struct AxisPointParams {
+  double nextPointDistance;                // distance to next point
+  std::complex<double> nextPointDirection; // outgoing direction relative to incoming direction
+};
+
+struct PatchPointParams {
+  size_t closestAxisPoint;                 // index of closest point on axis
+  double axisPointDistance;                // distance away from axis point
+  std::complex<double> axisPointDirection; // outgoing direction from axis point
 };
 
 class SurfacePatch {
@@ -39,7 +44,10 @@ public:
 
   void deformAxis(int index, std::complex<double> newDir);
 
-  void get(std::vector<SurfacePoint>& axis, std::vector<SurfacePoint>& points);
+  void get(std::vector<SurfacePoint>& axis, std::vector<SurfacePoint>& patch);
+
+  void getParameterized(std::vector<AxisPointParams>& parameterizedAxis,
+                        std::vector<PatchPointParams>& parameterizedPatch);
 
   std::vector<std::string> getAxisSerialized();
 
@@ -78,6 +86,10 @@ public:
                     const std::vector<double>& dists);
 
   void setPatchPoints(const std::vector<SurfacePoint>& points);
+
+  void setParameterizedAxis(std::vector<AxisPointParams>& parameterizedAxisPoints);
+
+  void setParameterizedPatch(std::vector<PatchPointParams>& parameterizedPatchPoints);
 
   void unlinkAllPatches();
 
@@ -128,7 +140,7 @@ private:
   VertexData<Vector2> m_axisDirectionTable;
   std::vector<SurfacePoint> m_patchAxisDense;
 
-  std::vector<params> m_parameterizedPoints;
+  std::vector<PatchPointParams> m_parameterizedPatchPoints;
   std::vector<SurfacePoint> m_patchPoints;
 
   // To support hierarchal organization
