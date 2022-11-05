@@ -36,17 +36,18 @@ void SurfacePatch::computeInitialAxisDirection() {
   m_initDir /= m_initDir.norm();
 }
 
-void SurfacePatch::createCustomAxis(std::vector<Vertex>& axisPoits) {
+void SurfacePatch::createCustomAxis(std::vector<Vertex>& axisPoints) {
   m_patchAxisSparse.clear();
 
   std::unique_ptr<FlipEdgeNetwork> edgeNetwork;
-  edgeNetwork = FlipEdgeNetwork::constructFromPiecewiseDijkstraPath(*m_mesh, *m_geometry, axisPoits);
+  edgeNetwork = FlipEdgeNetwork::constructFromPiecewiseDijkstraPath(*m_mesh, *m_geometry, axisPoints);
   edgeNetwork->iterativeShorten();
 
   std::vector<std::vector<SurfacePoint>> paths = edgeNetwork->getPathPolyline();
 
   m_patchAxisSparse = paths[0];
   m_startPoint = m_patchAxisSparse[0];
+
   computeInitialAxisDirection();
   constructDenselySampledAxis();
   computeAxisAnglesAndDistances();
@@ -473,6 +474,18 @@ void SurfacePatch::translate(const SurfacePoint& newStartPoint) {
   propagateChildUpdates();
 }
 
+void SurfacePatch::setAxisPoints(std::vector<SurfacePoint>& axisPoints) {
+  m_patchAxisSparse.clear();
+
+  m_patchAxisSparse.insert(m_patchAxisSparse.begin(), axisPoints.begin(), axisPoints.end());
+
+  m_startPoint = m_patchAxisSparse[0];
+
+  computeInitialAxisDirection();
+  constructDenselySampledAxis();
+  computeAxisAnglesAndDistances();
+}
+
 void SurfacePatch::setPatchAxis(const std::vector<SurfacePoint>& axis, const std::vector<std::complex<double>>& dirs,
                                 const std::vector<double>& dists) {
   m_patchAxisSparse = axis;
@@ -669,20 +682,15 @@ void SurfacePatch::constructDenselySampledAxis() {
   SurfacePoint pt1, pt2;
   double dist;
 
+  // NOTE: Tossing out dense axis - will be same as sparse
+  // Workaround until cutting to SurfaceCurve
+
   for (size_t i = 0; i < N; i++) {
     pt1 = m_patchAxisSparse[i];
     pt2 = m_patchAxisSparse[mod(i + 1, N)];
     denseCurve.push_back(pt1);
     idxIntoDense[i] = currIdx;
     currIdx++;
-
-    std::vector<SurfacePoint> path = connectPointsWithGeodesicMMP(pt1, pt2, dist);
-
-    if (path.size() > 2 && i != N - 1) {
-      denseCurve.insert(denseCurve.end(), path.begin(), path.end());
-      denseCurve.pop_back(); // to avoid double counting
-      currIdx += path.size();
-    }
   }
 
   m_patchAxisDense = denseCurve;

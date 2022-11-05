@@ -33,7 +33,7 @@ public:
 
   void computeInitialAxisDirection();
 
-  void createCustomAxis(std::vector<Vertex>& axisPoits);
+  void createCustomAxis(std::vector<Vertex>& axisPoints);
 
   void createDefaultAxis();
 
@@ -71,6 +71,8 @@ public:
   void transferContactPointsOnly(SurfacePatch* target);
 
   void translate(const SurfacePoint& newStartPoint);
+
+  void setAxisPoints(std::vector<SurfacePoint>& axisPoints);
 
   void setPatchAxis(const std::vector<SurfacePoint>& axis, const std::vector<std::complex<double>>& dirs,
                     const std::vector<double>& dists);
