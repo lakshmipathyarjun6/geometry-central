@@ -112,9 +112,30 @@ void SurfacePatch::deformAxis(int index, std::complex<double> newDir) {
   traceAxis();
 }
 
-void SurfacePatch::get(std::vector<SurfacePoint>& axis, std::vector<SurfacePoint>& points) {
+void SurfacePatch::get(std::vector<SurfacePoint>& axis, std::vector<SurfacePoint>& patch) {
   axis = m_patchAxisSparse;
-  points = m_patchPoints;
+  patch = m_patchPoints;
+}
+
+void SurfacePatch::getParameterized(std::vector<AxisPointParams>& parameterizedAxis,
+                                    std::vector<PatchPointParams>& parameterizedPatch) {
+  parameterizedPatch = m_parameterizedPatchPoints;
+
+  size_t N = m_patchAxisSparseAngles.size();
+
+  std::vector<AxisPointParams> pAxis(N);
+
+  // First axis point direction and all last point parameters will be ignored
+  for (int i = 0; i < N; i++) {
+    AxisPointParams intermediateParams;
+
+    intermediateParams.nextPointDistance = m_patchAxisSparseDistances[i];
+    intermediateParams.nextPointDirection = m_patchAxisSparseAngles[i];
+
+    pAxis[i] = intermediateParams;
+  }
+
+  parameterizedAxis = pAxis;
 }
 
 std::vector<std::string> SurfacePatch::getAxisSerialized() {
@@ -230,7 +251,7 @@ void SurfacePatch::linkPatch(std::string childName, SurfacePatch* child) {
 }
 
 void SurfacePatch::parameterizePatch() {
-  m_parameterizedPoints.clear();
+  m_parameterizedPatchPoints.clear();
 
   std::cout << m_patchPoints.size() << std::endl;
 
@@ -247,7 +268,7 @@ void SurfacePatch::parameterizePatch() {
   }
   VertexData<double> closestPoint = m_vectorHeatSolver->extendScalar(zippedDistances);
 
-  std::vector<params> ptToParam(m_patchPoints.size());
+  std::vector<PatchPointParams> ptToParam(m_patchPoints.size());
 
   double distance;
 
@@ -277,11 +298,11 @@ void SurfacePatch::parameterizePatch() {
     axisBasis /= std::abs(axisBasis);
     dir = dir / axisBasis;
 
-    params prms = {cp, distance, dir};
+    PatchPointParams prms = {cp, distance, dir};
     ptToParam[i] = prms;
   }
 
-  m_parameterizedPoints.insert(m_parameterizedPoints.begin(), ptToParam.begin(), ptToParam.end());
+  m_parameterizedPatchPoints.insert(m_parameterizedPatchPoints.begin(), ptToParam.begin(), ptToParam.end());
 }
 
 void SurfacePatch::propagateChildUpdates() {
@@ -335,15 +356,15 @@ void SurfacePatch::reconstructPatch() {
   SurfacePoint pathEndpoint;
   TraceGeodesicResult tracedGeodesic;
 
-  std::vector<SurfacePoint> constructedPatch(m_parameterizedPoints.size());
+  std::vector<SurfacePoint> constructedPatch(m_parameterizedPatchPoints.size());
 
-  for (size_t i = 0; i < m_parameterizedPoints.size(); i++) {
-    params p = m_parameterizedPoints[i];
-    std::complex<double> dir = p.dir;
-    double distance = p.dist;
-    SurfacePoint startPoint = m_patchAxisSparse[p.cp];
+  for (size_t i = 0; i < m_parameterizedPatchPoints.size(); i++) {
+    PatchPointParams p = m_parameterizedPatchPoints[i];
+    std::complex<double> dir = p.axisPointDirection;
+    double distance = p.axisPointDistance;
+    SurfacePoint startPoint = m_patchAxisSparse[p.closestAxisPoint];
 
-    std::complex<double> axisBasis = axisTangent(m_patchAxisSparseDenseIdx[p.cp], m_patchAxisDense);
+    std::complex<double> axisBasis = axisTangent(m_patchAxisSparseDenseIdx[p.closestAxisPoint], m_patchAxisDense);
     dir /= std::abs(dir);
     axisBasis /= std::abs(axisBasis);
     dir *= axisBasis;
@@ -352,7 +373,8 @@ void SurfacePatch::reconstructPatch() {
     if (distance <= 0) {
       pathEndpoint = startPoint;
     } else {
-      tracedGeodesic = traceGeodesic(*(m_geometry), m_patchAxisSparse[p.cp], Vector2::fromComplex(p.dist * dir));
+      tracedGeodesic =
+          traceGeodesic(*(m_geometry), m_patchAxisSparse[p.closestAxisPoint], Vector2::fromComplex(distance * dir));
       pathEndpoint = tracedGeodesic.endPoint;
     }
 
@@ -375,7 +397,8 @@ void SurfacePatch::saveAxisStartPointAndDirection() {
 
 void SurfacePatch::setBulkTransferParams(SurfacePatch* sourcePatch, std::string sourcePatchName,
                                          std::string destinationPatchName) {
-  std::cout << "Overriding child trace params of " << destinationPatchName << " with " << sourcePatchName << std::endl;
+  std::cout << "Overriding child trace PatchPointParams of " << destinationPatchName << " with " << sourcePatchName
+            << std::endl;
 
   std::tuple<std::complex<double>, std::complex<double>, double, double> sourceChildTraceParams =
       sourcePatch->m_childTraceParams[sourcePatchName];
@@ -422,14 +445,17 @@ void SurfacePatch::transfer(SurfacePatch* target, const SurfacePoint& targetMesh
   // Compute distances and directions on S1, then reconstruct contact on S2
   // Reconstruct patch only if patch has been parameterized on source domain
 
-  if (m_parameterizedPoints.size() > 0) {
-    target->m_parameterizedPoints.clear();
+  if (m_parameterizedPatchPoints.size() > 0) {
+    target->m_parameterizedPatchPoints.clear();
 
-    for (int i = 0; i < m_parameterizedPoints.size(); i++) {
-      params sourceParams = m_parameterizedPoints[i];
-      std::complex<double> adjustedDir = {sourceParams.dir.real(), -sourceParams.dir.imag()};
-      params targetParams = {sourceParams.cp, sourceParams.dist, adjustedDir};
-      target->m_parameterizedPoints.push_back(targetParams);
+    for (int i = 0; i < m_parameterizedPatchPoints.size(); i++) {
+      PatchPointParams sourceParams = m_parameterizedPatchPoints[i];
+
+      std::complex<double> sourceDirection = sourceParams.axisPointDirection;
+
+      std::complex<double> adjustedDir = {sourceDirection.real(), -sourceDirection.imag()};
+      PatchPointParams targetParams = {sourceParams.closestAxisPoint, sourceParams.axisPointDistance, adjustedDir};
+      target->m_parameterizedPatchPoints.push_back(targetParams);
     }
 
     target->reconstructPatch();
@@ -453,11 +479,11 @@ void SurfacePatch::transferContactPointsOnly(SurfacePatch* target) {
   // Recreate boundary only if boundary has been parameterized on source domain
   // Invert if correspondence should result in mirror image
 
-  if (m_parameterizedPoints.size() > 0) {
-    target->m_parameterizedPoints.clear();
+  if (m_parameterizedPatchPoints.size() > 0) {
+    target->m_parameterizedPatchPoints.clear();
 
-    target->m_parameterizedPoints.insert(target->m_parameterizedPoints.begin(), m_parameterizedPoints.begin(),
-                                         m_parameterizedPoints.end());
+    target->m_parameterizedPatchPoints.insert(target->m_parameterizedPatchPoints.begin(),
+                                              m_parameterizedPatchPoints.begin(), m_parameterizedPatchPoints.end());
 
     target->reconstructPatch();
   }
@@ -498,6 +524,27 @@ void SurfacePatch::setPatchAxis(const std::vector<SurfacePoint>& axis, const std
 }
 
 void SurfacePatch::setPatchPoints(const std::vector<SurfacePoint>& points) { m_patchPoints = points; }
+
+void SurfacePatch::setParameterizedAxis(std::vector<AxisPointParams>& parameterizedAxisPoints) {
+  assert(parameterizedAxisPoints.size() == m_patchAxisSparse.size());
+  assert(m_patchAxisSparse.size() == m_patchAxisDense.size());
+
+  m_patchAxisSparseDistances.clear();
+  m_patchAxisSparseAngles.clear();
+
+  for (int i = 0; i < parameterizedAxisPoints.size(); i++) {
+    AxisPointParams app = parameterizedAxisPoints[i];
+
+    m_patchAxisSparseDistances.push_back(app.nextPointDistance);
+    m_patchAxisSparseAngles.push_back(app.nextPointDirection);
+  }
+}
+
+void SurfacePatch::setParameterizedPatch(std::vector<PatchPointParams>& parameterizedPatchPoints) {
+  m_parameterizedPatchPoints.clear();
+  m_parameterizedPatchPoints.insert(m_parameterizedPatchPoints.begin(), parameterizedPatchPoints.begin(),
+                                    parameterizedPatchPoints.end());
+}
 
 void SurfacePatch::unlinkAllPatches() {
   std::vector<std::string> allChildren;
