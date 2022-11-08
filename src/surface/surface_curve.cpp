@@ -54,6 +54,13 @@ void SurfaceCurve::deformDistance(int pointIndex, double newDist) {
 
 void SurfaceCurve::get(std::vector<SurfacePoint>& points) { points = m_points; }
 
+std::complex<double> SurfaceCurve::getDirAtIndex(int index) {
+  assert(index < m_angles.size());
+  return m_angles[index];
+}
+
+Vector2 SurfaceCurve::getStartDir() { return m_initDir; }
+
 void SurfaceCurve::rotate(Vector2 newDir) {
   m_initDir = newDir;
   recompute();

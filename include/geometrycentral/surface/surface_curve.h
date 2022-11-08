@@ -22,6 +22,10 @@ public:
 
   void get(std::vector<SurfacePoint>& points);
 
+  std::complex<double> getDirAtIndex(int index);
+
+  Vector2 getStartDir();
+
   void rotate(Vector2 newDir);
 
   void saveStartParams();
