@@ -10,6 +10,8 @@ SurfaceCurve::SurfaceCurve(ManifoldSurfaceMesh* mesh, VertexPositionGeometry* ge
 }
 
 void SurfaceCurve::createFromPoints(std::vector<SurfacePoint>& curvePoints) {
+  assert(curvePoints.size() > 1);
+
   m_points.clear();
 
   m_startPoint = curvePoints[0];
@@ -21,17 +23,15 @@ void SurfaceCurve::createFromPoints(std::vector<SurfacePoint>& curvePoints) {
   SurfacePoint pt1, pt2;
   double dist;
 
-  for (size_t i = 0; i < N; i++) {
+  for (size_t i = 0; i < N - 1; i++) {
     pt1 = curvePoints[i];
-    pt2 = curvePoints[mod(i + 1, N)];
-    denseCurve.push_back(pt1);
+    pt2 = curvePoints[i + 1];
 
     std::vector<SurfacePoint> path = connectPointsWithGeodesic(pt1, pt2, dist);
+    std::vector<SurfacePoint> prunedPath = pruneApproxEqualEntries(path);
 
-    if (path.size() > 2 && i != N - 1) {
-      denseCurve.insert(denseCurve.end(), path.begin(), path.end());
-      denseCurve.pop_back(); // to avoid double counting
-    }
+    denseCurve.insert(denseCurve.end(), prunedPath.begin(), prunedPath.end());
+    denseCurve.pop_back(); // to avoid double counti
   }
 
   m_points = denseCurve;
@@ -85,6 +85,24 @@ void SurfaceCurve::translate(const SurfacePoint& newStartPoint) {
 
 // Private Utils
 
+bool SurfaceCurve::approxEqual(const SurfacePoint& pA, const SurfacePoint& pB) {
+
+  if (pA.type != pB.type) return false;
+  double eps = 1e-5;
+  switch (pA.type) {
+  case (SurfacePointType::Vertex):
+    return pA.vertex == pB.vertex;
+    break;
+  case (SurfacePointType::Edge):
+    return pA.edge == pB.edge && abs(pA.tEdge - pB.tEdge) < eps;
+    break;
+  case (SurfacePointType::Face):
+    return pA.face == pB.face && (pA.faceCoords - pB.faceCoords).norm() < eps;
+    break;
+  }
+  throw std::logic_error("bad switch"); // shouldn't get here
+}
+
 void SurfaceCurve::computeAnglesAndDistances() {
 
   size_t N = m_points.size();
@@ -94,13 +112,12 @@ void SurfaceCurve::computeAnglesAndDistances() {
 
   SurfacePoint currNode, prevNode, nextNode;
   std::complex<double> origDir, offsetDir, adjustedDir;
-  Vector3 currPos, nextPos;
   size_t currIdx, nextIdx, prevIdx;
 
-  for (size_t i = 0; i < N; i++) {
+  for (size_t i = 1; i < N - 1; i++) {
     currIdx = i;
-    nextIdx = mod(currIdx + 1, N);
-    prevIdx = mod(currIdx - 1, N);
+    nextIdx = currIdx + 1;
+    prevIdx = currIdx - 1;
     currNode = m_points[currIdx];
     nextNode = m_points[nextIdx];
     prevNode = m_points[prevIdx];
@@ -108,7 +125,7 @@ void SurfaceCurve::computeAnglesAndDistances() {
     Vector3 a = currNode.interpolate(m_geometry->inputVertexPositions);
     Vector3 b = nextNode.interpolate(m_geometry->inputVertexPositions);
 
-    distances[i] = (a - b).norm();
+    distances[i] = (b - a).norm();
 
     origDir = localDir(currNode, nextNode);
     offsetDir = localDir(currNode, prevNode);
@@ -118,6 +135,11 @@ void SurfaceCurve::computeAnglesAndDistances() {
     adjustedDir = origDir / offsetDir;
     angles[i] = adjustedDir;
   }
+
+  Vector3 startPos = m_points[0].interpolate(m_geometry->inputVertexPositions);
+  Vector3 nextPos = m_points[1].interpolate(m_geometry->inputVertexPositions);
+
+  distances[0] = (nextPos - startPos).norm();
 
   m_angles = angles;
   m_distances = distances;
@@ -258,8 +280,6 @@ Vector2 SurfaceCurve::localDir(const SurfacePoint& pt1, const SurfacePoint& pt2)
   return dir;
 }
 
-int SurfaceCurve::mod(int a, int b) { return (b + (a % b)) % b; }
-
 Vector2 SurfaceCurve::parallelTransport(const SurfacePoint& startPoint, const SurfacePoint& endpoint,
                                         double initAngle) {
   double distance;
@@ -302,6 +322,24 @@ Vector2 SurfaceCurve::parallelTransport(const SurfacePoint& startPoint, const Su
   return result;
 }
 
+std::vector<SurfacePoint> SurfaceCurve::pruneApproxEqualEntries(const std::vector<SurfacePoint>& source) {
+  std::vector<SurfacePoint> result;
+
+  if (source.size() == 2) {
+    result = source;
+  } else {
+    result.push_back(source[0]);
+
+    for (const SurfacePoint& pathPt : source) {
+      if (!approxEqual(pathPt, result.back())) {
+        result.push_back(pathPt);
+      }
+    }
+  }
+
+  return result;
+}
+
 void SurfaceCurve::recompute() {
   // Clear all existing point data
   m_points.clear();
@@ -324,7 +362,7 @@ void SurfaceCurve::recompute() {
       traceGeodesic(*(m_geometry), m_startPoint, Vector2::fromComplex(m_initDir * m_distances[0]), traceOptions);
 
   pathEndpoint = tracedGeodesic.endPoint;
-  m_points.insert(m_points.end(), tracedGeodesic.pathPoints.begin() + 1, tracedGeodesic.pathPoints.end());
+  m_points.push_back(pathEndpoint);
   endingDir = -tracedGeodesic.endingDir;
 
   // Trace the rest
@@ -339,7 +377,7 @@ void SurfaceCurve::recompute() {
                                    Vector2::fromComplex(adjustedDirS2 * m_distances[i]), traceOptions);
 
     pathEndpoint = tracedGeodesic.endPoint;
-    m_points.insert(m_points.end(), tracedGeodesic.pathPoints.begin() + 1, tracedGeodesic.pathPoints.end());
+    m_points.push_back(pathEndpoint);
     endingDir = -tracedGeodesic.endingDir;
   }
 }

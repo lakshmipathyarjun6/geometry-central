@@ -31,6 +31,8 @@ public:
   void translate(const SurfacePoint& newStartPoint);
 
 private:
+  bool approxEqual(const SurfacePoint& pA, const SurfacePoint& pB);
+
   void computeAnglesAndDistances();
 
   void computeInitialDirection();
@@ -42,9 +44,9 @@ private:
 
   Vector2 localDir(const SurfacePoint& pt1, const SurfacePoint& pt2);
 
-  int mod(int a, int b);
-
   Vector2 parallelTransport(const SurfacePoint& startPoint, const SurfacePoint& endpoint, double initAngle);
+
+  std::vector<SurfacePoint> pruneApproxEqualEntries(const std::vector<SurfacePoint>& source);
 
   void recompute();
 
