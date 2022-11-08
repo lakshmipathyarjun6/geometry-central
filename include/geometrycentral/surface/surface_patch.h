@@ -71,7 +71,7 @@ public:
 
   void setBulkTransferParams(SurfacePatch* sourcePatch, std::string sourcePatchName, std::string destinationPatchName);
 
-  void transfer(SurfacePatch* target, const SurfacePoint& targetMeshStart, const SurfacePoint& targetMeshDirEndpoit);
+  void transfer(SurfacePatch* target, const SurfacePoint& targetMeshStart, const SurfacePoint& targetMeshDirEndpoint);
 
   void transferAxisOnly(SurfacePatch* target, const SurfacePoint& targetMeshStart,
                         const SurfacePoint& targetMeshDirEndpoint);

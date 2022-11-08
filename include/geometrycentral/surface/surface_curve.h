@@ -32,6 +32,8 @@ public:
 
   void setPoints(const std::vector<SurfacePoint>& points);
 
+  void transfer(SurfaceCurve* target, const SurfacePoint& targetMeshStart, const SurfacePoint& targetMeshDirEndpoint);
+
   void translate(const SurfacePoint& newStartPoint);
 
 private:
