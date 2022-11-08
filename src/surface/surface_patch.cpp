@@ -420,7 +420,7 @@ void SurfacePatch::setBulkTransferParams(SurfacePatch* sourcePatch, std::string 
 }
 
 void SurfacePatch::transfer(SurfacePatch* target, const SurfacePoint& targetMeshStart,
-                            const SurfacePoint& targetMeshDirEndpoit) {
+                            const SurfacePoint& targetMeshDirEndpoint) {
   // All angles and distances should be the same, save for the first one (which is ignored)
 
   // Note that we deliberately adjust the phasor multiplier since we want the MIRROR image
@@ -433,7 +433,7 @@ void SurfacePatch::transfer(SurfacePatch* target, const SurfacePoint& targetMesh
                                             m_patchAxisSparseDistances.begin(), m_patchAxisSparseDistances.end());
 
   target->m_startPoint = targetMeshStart;
-  target->m_initDir = target->localDir(targetMeshStart, targetMeshDirEndpoit);
+  target->m_initDir = target->localDir(targetMeshStart, targetMeshDirEndpoint);
 
   for (int i = 0; i < m_patchAxisSparseAngles.size(); i++) {
     std::complex<double> adjustedDir = {m_patchAxisSparseAngles[i].real(), -m_patchAxisSparseAngles[i].imag()};

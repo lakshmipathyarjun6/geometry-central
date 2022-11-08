@@ -80,6 +80,20 @@ void SurfaceCurve::setPoints(const std::vector<SurfacePoint>& points) {
   computeAnglesAndDistances();
 }
 
+void SurfaceCurve::transfer(SurfaceCurve* target, const SurfacePoint& targetMeshStart,
+                            const SurfacePoint& targetMeshDirEndpoint) {
+  target->m_angles.clear();
+  target->m_distances.clear();
+
+  target->m_angles.insert(target->m_angles.end(), m_angles.begin(), m_angles.end());
+  target->m_distances.insert(target->m_distances.end(), m_distances.begin(), m_distances.end());
+
+  target->m_startPoint = targetMeshStart;
+  target->m_initDir = target->localDir(targetMeshStart, targetMeshDirEndpoint);
+
+  target->recompute();
+}
+
 void SurfaceCurve::translate(const SurfacePoint& newStartPoint) {
   assert(m_savedStartPoint != SurfacePoint());
   assert(m_savedInitDir != Vector2());
