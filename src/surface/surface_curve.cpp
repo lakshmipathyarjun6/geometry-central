@@ -59,6 +59,24 @@ std::complex<double> SurfaceCurve::getDirAtIndex(int index) {
   return m_angles[index];
 }
 
+void SurfaceCurve::getParameterized(std::vector<CurvePointParams>& parameterizedPoints) {
+  size_t N = m_angles.size();
+
+  std::vector<CurvePointParams> pCurve(N);
+
+  // First axis point direction and all last point parameters will be ignored
+  for (int i = 0; i < N; i++) {
+    CurvePointParams intermediateParams;
+
+    intermediateParams.nextPointDistance = m_distances[i];
+    intermediateParams.nextPointDirection = m_angles[i];
+
+    pCurve[i] = intermediateParams;
+  }
+
+  parameterizedPoints = pCurve;
+}
+
 Vector2 SurfaceCurve::getStartDir() { return m_initDir; }
 
 void SurfaceCurve::rotate(Vector2 newDir) {
@@ -69,6 +87,20 @@ void SurfaceCurve::rotate(Vector2 newDir) {
 void SurfaceCurve::saveStartParams() {
   m_savedStartPoint = m_startPoint;
   m_savedInitDir = m_initDir;
+}
+
+void SurfaceCurve::setParameterized(std::vector<CurvePointParams>& parameterizedPoints) {
+  assert(parameterizedPoints.size() == m_points.size());
+
+  m_distances.clear();
+  m_angles.clear();
+
+  for (int i = 0; i < parameterizedPoints.size(); i++) {
+    CurvePointParams pp = parameterizedPoints[i];
+
+    m_distances.push_back(pp.nextPointDistance);
+    m_angles.push_back(pp.nextPointDirection);
+  }
 }
 
 void SurfaceCurve::setPoints(const std::vector<SurfacePoint>& points) {
