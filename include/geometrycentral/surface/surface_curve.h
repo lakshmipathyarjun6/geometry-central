@@ -9,6 +9,11 @@
 using namespace geometrycentral;
 using namespace geometrycentral::surface;
 
+struct CurvePointParams {
+  double nextPointDistance;                // distance to next point
+  std::complex<double> nextPointDirection; // outgoing direction relative to incoming direction
+};
+
 class SurfaceCurve {
 
 public:
@@ -22,6 +27,8 @@ public:
 
   void get(std::vector<SurfacePoint>& points);
 
+  void getParameterized(std::vector<CurvePointParams>& parameterizedPoints);
+
   std::complex<double> getDirAtIndex(int index);
 
   Vector2 getStartDir();
@@ -29,6 +36,8 @@ public:
   void rotate(Vector2 newDir);
 
   void saveStartParams();
+
+  void setParameterized(std::vector<CurvePointParams>& parameterizedPoints);
 
   void setPoints(const std::vector<SurfacePoint>& points);
 
