@@ -27,15 +27,19 @@ public:
 
   void get(std::vector<SurfacePoint>& points);
 
-  void getParameterized(std::vector<CurvePointParams>& parameterizedPoints);
-
   std::complex<double> getDirAtIndex(int index);
+
+  double getLinearScaleCoefficient();
+
+  void getParameterized(std::vector<CurvePointParams>& parameterizedPoints);
 
   Vector2 getStartDir();
 
   void rotate(Vector2 newDir);
 
   void saveStartParams();
+
+  void setLinearScaleCoefficient(double linearScaleCoefficient);
 
   void setParameterized(std::vector<CurvePointParams>& parameterizedPoints);
 
@@ -78,4 +82,6 @@ private:
   std::unique_ptr<ManifoldSurfaceMesh> m_mesh;
   std::unique_ptr<VertexPositionGeometry> m_geometry;
   std::unique_ptr<GeodesicAlgorithmExact> m_mmpSolver;
+
+  double m_linearScaleCoefficient;
 };

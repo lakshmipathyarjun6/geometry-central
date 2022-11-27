@@ -4,7 +4,8 @@ int mod(int a, int b) { return (b + (a % b)) % b; }
 
 SurfacePatch::SurfacePatch(ManifoldSurfaceMesh* mesh, VertexPositionGeometry* geometry,
                            GeodesicAlgorithmExact* mmpSolver, HeatMethodDistanceSolver* distanceHeatSolver,
-                           VectorHeatMethodSolver* vectorHeatSolver) {
+                           VectorHeatMethodSolver* vectorHeatSolver)
+    : m_patchSpreadCoefficient(1.0) {
   m_mesh.reset(mesh);
   m_geometry.reset(geometry);
   m_distanceHeatSolver.reset(distanceHeatSolver);
@@ -190,9 +191,11 @@ std::complex<double> SurfacePatch::getDirAtAxisIndex(int index) {
   return m_patchAxisSparseAngles[index];
 }
 
+Vector2 SurfacePatch::getInitDir() { return m_initDir; }
+
 std::vector<std::string> SurfacePatch::getPatchSerialized() { return getSerializedSurfacePoints(m_patchPoints); }
 
-Vector2 SurfacePatch::getInitDir() { return m_initDir; }
+double SurfacePatch::getPatchSpreadCoefficient() { return m_patchSpreadCoefficient; }
 
 void SurfacePatch::linkPatch(std::string childName, SurfacePatch* child) {
   m_children[childName] = child;
@@ -361,7 +364,7 @@ void SurfacePatch::reconstructPatch() {
   for (size_t i = 0; i < m_parameterizedPatchPoints.size(); i++) {
     PatchPointParams p = m_parameterizedPatchPoints[i];
     std::complex<double> dir = p.axisPointDirection;
-    double distance = p.axisPointDistance;
+    double distance = m_patchSpreadCoefficient * p.axisPointDistance;
     SurfacePoint startPoint = m_patchAxisSparse[p.closestAxisPoint];
 
     std::complex<double> axisBasis = axisTangent(m_patchAxisSparseDenseIdx[p.closestAxisPoint], m_patchAxisDense);
@@ -417,6 +420,11 @@ void SurfacePatch::setBulkTransferParams(SurfacePatch* sourcePatch, std::string 
       std::make_tuple(invertedLocalAngleDepart1, invertedLocalAngleDepart2, sourcedLocalDist1, sourceLocalDist2);
 
   propagateChildUpdates();
+}
+
+void SurfacePatch::setPatchSpreadCoefficient(double patchSpreadCoefficient) {
+  m_patchSpreadCoefficient = patchSpreadCoefficient;
+  reconstructPatch();
 }
 
 void SurfacePatch::transfer(SurfacePatch* target, const SurfacePoint& targetMeshStart,

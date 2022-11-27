@@ -53,9 +53,11 @@ public:
 
   std::complex<double> getDirAtAxisIndex(int index);
 
+  Vector2 getInitDir();
+
   std::vector<std::string> getPatchSerialized();
 
-  Vector2 getInitDir();
+  double getPatchSpreadCoefficient();
 
   void linkPatch(std::string childName, SurfacePatch* child);
 
@@ -70,6 +72,8 @@ public:
   void saveAxisStartPointAndDirection();
 
   void setBulkTransferParams(SurfacePatch* sourcePatch, std::string sourcePatchName, std::string destinationPatchName);
+
+  void setPatchSpreadCoefficient(double patchSpreadCoefficient);
 
   void transfer(SurfacePatch* target, const SurfacePoint& targetMeshStart, const SurfacePoint& targetMeshDirEndpoint);
 
@@ -153,4 +157,6 @@ private:
 
   SurfacePoint m_savedStartPoint;
   Vector2 m_savedInitDir;
+
+  double m_patchSpreadCoefficient;
 };
