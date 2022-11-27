@@ -3,7 +3,8 @@
 // Public Utils
 
 SurfaceCurve::SurfaceCurve(ManifoldSurfaceMesh* mesh, VertexPositionGeometry* geometry,
-                           GeodesicAlgorithmExact* mmpSolver) {
+                           GeodesicAlgorithmExact* mmpSolver)
+    : m_linearScaleCoefficient(1.0) {
   m_mesh.reset(mesh);
   m_geometry.reset(geometry);
   m_mmpSolver.reset(mmpSolver);
@@ -59,6 +60,8 @@ std::complex<double> SurfaceCurve::getDirAtIndex(int index) {
   return m_angles[index];
 }
 
+double SurfaceCurve::getLinearScaleCoefficient() { return m_linearScaleCoefficient; }
+
 void SurfaceCurve::getParameterized(std::vector<CurvePointParams>& parameterizedPoints) {
   size_t N = m_angles.size();
 
@@ -87,6 +90,11 @@ void SurfaceCurve::rotate(Vector2 newDir) {
 void SurfaceCurve::saveStartParams() {
   m_savedStartPoint = m_startPoint;
   m_savedInitDir = m_initDir;
+}
+
+void SurfaceCurve::setLinearScaleCoefficient(double linearScaleCoefficient) {
+  m_linearScaleCoefficient = linearScaleCoefficient;
+  recompute();
 }
 
 void SurfaceCurve::setParameterized(std::vector<CurvePointParams>& parameterizedPoints) {
@@ -412,7 +420,8 @@ void SurfaceCurve::recompute() {
   // Trace out from first to second point
   m_initDir /= m_initDir.norm();
   tracedGeodesic =
-      traceGeodesic(*(m_geometry), m_startPoint, Vector2::fromComplex(m_initDir * m_distances[0]), traceOptions);
+      traceGeodesic(*(m_geometry), m_startPoint,
+                    Vector2::fromComplex(m_initDir * m_linearScaleCoefficient * m_distances[0]), traceOptions);
 
   pathEndpoint = tracedGeodesic.endPoint;
   m_points.push_back(pathEndpoint);
@@ -426,8 +435,9 @@ void SurfaceCurve::recompute() {
     adjustedDirS2 /= std::abs(adjustedDirS2); // make sure direction is unit
 
     // Trace geodesic from last point and record where it ended up
-    tracedGeodesic = traceGeodesic(*(m_geometry), m_points[m_points.size() - 1],
-                                   Vector2::fromComplex(adjustedDirS2 * m_distances[i]), traceOptions);
+    tracedGeodesic =
+        traceGeodesic(*(m_geometry), m_points[m_points.size() - 1],
+                      Vector2::fromComplex(adjustedDirS2 * m_linearScaleCoefficient * m_distances[i]), traceOptions);
 
     pathEndpoint = tracedGeodesic.endPoint;
     m_points.push_back(pathEndpoint);
