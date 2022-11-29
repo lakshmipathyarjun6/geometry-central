@@ -393,9 +393,17 @@ void SurfacePatch::reconstructPatch() {
     double distance = m_patchSpreadCoefficient * p.axisPointDistance;
     SurfacePoint startPoint = m_patchAxisSparse[p.closestAxisPoint];
 
-    std::complex<double> axisBasis = axisTangent(m_patchAxisSparseDenseIdx[p.closestAxisPoint], m_patchAxisDense);
     dir /= std::abs(dir);
-    axisBasis /= std::abs(axisBasis);
+
+    std::complex<double> axisBasis;
+
+    if (m_patchAxisSparse.size() > 1) {
+      axisBasis = axisTangent(m_patchAxisSparseDenseIdx[p.closestAxisPoint], m_patchAxisDense);
+      axisBasis /= std::abs(axisBasis);
+    } else {
+      axisBasis = m_initDir;
+    }
+
     dir *= axisBasis;
 
     // Handle distance = 0 edge cases
@@ -1037,6 +1045,8 @@ std::vector<SurfacePoint> SurfacePatch::pruneApproxEqualEntries(const std::vecto
 }
 
 void SurfacePatch::traceAxis() {
+  bool singlePointAxis = m_patchAxisSparse.size() == 1;
+
   // Clear all existing data
   m_patchAxisSparse.clear();
   m_patchAxisSparseDenseIdx.clear();
@@ -1046,6 +1056,11 @@ void SurfacePatch::traceAxis() {
   m_patchAxisSparse.emplace_back(m_startPoint);
   m_patchAxisDense.emplace_back(m_startPoint);
   m_patchAxisSparseDenseIdx.push_back(0);
+
+  // Do nothing more if single point axis
+  if (singlePointAxis) {
+    return;
+  }
 
   // Declare some variables
   size_t N = m_patchAxisSparseAngles.size();
