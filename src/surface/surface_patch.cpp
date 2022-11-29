@@ -30,6 +30,12 @@ void SurfacePatch::computeInitialAxisDirection() {
   m_geometry->requireVertexNormals();
   m_geometry->requireVertexTangentBasis();
 
+  // Special case of single point embedding - axis is useless
+  if (m_patchAxisSparse.size() == 1) {
+    m_initDir = {1.0, 0.0};
+    return;
+  }
+
   SurfacePoint firstPoint = m_patchAxisSparse[0];
   SurfacePoint secondPoint = m_patchAxisSparse[1];
 
@@ -261,24 +267,36 @@ void SurfacePatch::parameterizePatch() {
   // Do closest point interpolation.
 
   std::vector<std::tuple<SurfacePoint, double>> zippedDistances; // distances along curve
-  zippedDistances.push_back(std::make_tuple(m_startPoint, 0));
-  double totalDist = 0;
-  for (size_t i = 0; i < m_patchAxisSparse.size() - 1; i++) {
-    SurfacePoint pt2 = m_patchAxisSparse[i + 1];
-    double dist = m_patchAxisSparseDistances[i];
-    totalDist += dist;
-    zippedDistances.push_back(std::make_tuple(pt2, totalDist));
+  VertexData<double> closestPoint;
+
+  // Necessary only if more than one point exists
+  if (m_patchAxisSparse.size() > 1) {
+    zippedDistances.push_back(std::make_tuple(m_startPoint, 0));
+    double totalDist = 0;
+    for (size_t i = 0; i < m_patchAxisSparse.size() - 1; i++) {
+      SurfacePoint pt2 = m_patchAxisSparse[i + 1];
+      double dist = m_patchAxisSparseDistances[i];
+      totalDist += dist;
+      zippedDistances.push_back(std::make_tuple(pt2, totalDist));
+    }
+    closestPoint = m_vectorHeatSolver->extendScalar(zippedDistances);
   }
-  VertexData<double> closestPoint = m_vectorHeatSolver->extendScalar(zippedDistances);
 
   std::vector<PatchPointParams> ptToParam(m_patchPoints.size());
 
   double distance;
+  size_t cp;
 
   for (size_t i = 0; i < m_patchPoints.size(); i++) {
     SurfacePoint patchPoint = m_patchPoints[i];
-    double diffusedVal = patchPoint.interpolate(closestPoint);
-    size_t cp = indexOfClosestPointOnAxis(diffusedVal, zippedDistances);
+
+    if (m_patchAxisSparse.size() > 1) {
+      double diffusedVal = patchPoint.interpolate(closestPoint);
+      cp = indexOfClosestPointOnAxis(diffusedVal, zippedDistances);
+    } else {
+      cp = 0;
+    }
+
     SurfacePoint axisPoint = m_patchAxisSparse[cp];
 
     std::vector<SurfacePoint> geodesic = connectPointsWithGeodesicMMP(axisPoint, patchPoint, distance);
@@ -297,8 +315,16 @@ void SurfacePatch::parameterizePatch() {
 
     // Compute relative to the tangent direction of the axis
     dir /= std::abs(dir);
-    std::complex<double> axisBasis = axisTangent(m_patchAxisSparseDenseIdx[cp], m_patchAxisDense);
-    axisBasis /= std::abs(axisBasis);
+
+    std::complex<double> axisBasis;
+
+    if (m_patchAxisSparse.size() > 1) {
+      axisBasis = axisTangent(m_patchAxisSparseDenseIdx[cp], m_patchAxisDense);
+      axisBasis /= std::abs(axisBasis);
+    } else {
+      axisBasis = m_initDir;
+    }
+
     dir = dir / axisBasis;
 
     PatchPointParams prms = {cp, distance, dir};
@@ -606,7 +632,6 @@ bool SurfacePatch::approxEqual(const SurfacePoint& pA, const SurfacePoint& pB) {
  * Compute the direction of the basis of the axis curve, at the given point.
  */
 std::complex<double> SurfacePatch::axisTangent(size_t idx, const std::vector<SurfacePoint>& axis) {
-
   int nextDir = (idx == axis.size() - 1) ? -1 : 1;
   SurfacePoint pt1 = axis[idx];
   SurfacePoint pt2 = axis[idx + nextDir];
