@@ -3,7 +3,6 @@
 #include "geometrycentral/numerical/linear_solvers.h"
 #include "geometrycentral/surface/exact_geodesics.h"
 #include "geometrycentral/surface/flip_geodesics.h"
-#include "geometrycentral/surface/heat_method_distance.h"
 #include "geometrycentral/surface/intrinsic_geometry_interface.h"
 #include "geometrycentral/surface/manifold_surface_mesh.h"
 #include "geometrycentral/surface/surface_mesh.h"
@@ -32,9 +31,7 @@ class SurfacePatch {
 public:
   // constructors
   SurfacePatch(ManifoldSurfaceMesh* mesh, VertexPositionGeometry* geometry, GeodesicAlgorithmExact* mmpSolver,
-               HeatMethodDistanceSolver* distanceHeatSolver, VectorHeatMethodSolver* vectorHeatSolver);
-
-  void computeGlobalAxisTransport();
+               VectorHeatMethodSolver* vectorHeatSolver);
 
   void computeInitialAxisDirection();
 
@@ -49,21 +46,13 @@ public:
   void getParameterized(std::vector<AxisPointParams>& parameterizedAxis,
                         std::vector<PatchPointParams>& parameterizedPatch);
 
-  std::vector<std::string> getAxisSerialized();
-
   std::complex<double> getDirAtAxisIndex(int index);
 
   Vector2 getInitDir();
 
-  std::vector<std::string> getPatchSerialized();
-
   double getPatchSpreadCoefficient();
 
-  void linkPatch(std::string childName, SurfacePatch* child);
-
   void parameterizePatch();
-
-  void propagateChildUpdates();
 
   void reconstructPatch();
 
@@ -71,16 +60,9 @@ public:
 
   void saveAxisStartPointAndDirection();
 
-  void setBulkTransferParams(SurfacePatch* sourcePatch, std::string sourcePatchName, std::string destinationPatchName);
-
   void setPatchSpreadCoefficient(double patchSpreadCoefficient);
 
   void transfer(SurfacePatch* target, const SurfacePoint& targetMeshStart, const SurfacePoint& targetMeshDirEndpoint);
-
-  void transferAxisOnly(SurfacePatch* target, const SurfacePoint& targetMeshStart,
-                        const SurfacePoint& targetMeshDirEndpoint);
-
-  void transferContactPointsOnly(SurfacePatch* target);
 
   void translate(const SurfacePoint& newStartPoint);
 
@@ -95,10 +77,6 @@ public:
 
   void setParameterizedPatch(std::vector<PatchPointParams>& parameterizedPatchPoints);
 
-  void unlinkAllPatches();
-
-  void unlinkPatch(std::string childName);
-
 private:
   bool approxEqual(const SurfacePoint& pA, const SurfacePoint& pB);
 
@@ -106,16 +84,10 @@ private:
 
   void computeAxisAnglesAndDistances();
 
-  std::vector<SurfacePoint> connectPointsWithGeodesic(const SurfacePoint& pt1, const SurfacePoint& pt2);
-
-  std::vector<SurfacePoint> connectPointsWithGeodesicMMP(const SurfacePoint& pt1, const SurfacePoint& pt2,
-                                                         double& distance);
+  std::vector<SurfacePoint> connectPointsWithGeodesic(const SurfacePoint& pt1, const SurfacePoint& pt2,
+                                                      double& distance);
 
   void constructDenselySampledAxis();
-
-  double evaluateVertexDataAtPoint(const VertexData<double>& u, const SurfacePoint& pt);
-
-  std::vector<std::string> getSerializedSurfacePoints(std::vector<SurfacePoint>& source);
 
   size_t indexOfClosestPointOnAxis(double diffusedVal,
                                    const std::vector<std::tuple<SurfacePoint, double>>& zippedDistances);
@@ -132,7 +104,6 @@ private:
 
   std::unique_ptr<ManifoldSurfaceMesh> m_mesh;
   std::unique_ptr<VertexPositionGeometry> m_geometry;
-  std::unique_ptr<HeatMethodDistanceSolver> m_distanceHeatSolver;
   std::unique_ptr<VectorHeatMethodSolver> m_vectorHeatSolver;
   std::unique_ptr<GeodesicAlgorithmExact> m_mmpSolver;
 
@@ -141,16 +112,10 @@ private:
   std::vector<double> m_patchAxisSparseDistances;
   std::vector<size_t> m_patchAxisSparseDenseIdx;
 
-  VertexData<Vector2> m_axisDirectionTable;
   std::vector<SurfacePoint> m_patchAxisDense;
 
   std::vector<PatchPointParams> m_parameterizedPatchPoints;
   std::vector<SurfacePoint> m_patchPoints;
-
-  // To support hierarchal organization
-  SurfacePatch* m_parent;
-  std::map<std::string, SurfacePatch*> m_children;
-  std::map<std::string, std::tuple<std::complex<double>, std::complex<double>, double, double>> m_childTraceParams;
 
   SurfacePoint m_startPoint;
   Vector2 m_initDir;
