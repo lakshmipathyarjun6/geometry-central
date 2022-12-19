@@ -25,15 +25,23 @@ public:
 
   void deformDistance(int pointIndex, double newDist);
 
-  void get(std::vector<SurfacePoint>& points);
+  void getPoints(std::vector<SurfacePoint>& points);
 
-  std::complex<double> getDirAtIndex(int index);
+  std::complex<double> getAngleAtIndex(int index);
+
+  double getDistanceAtIndex(int index);
 
   double getLinearScaleCoefficient();
 
   void getParameterized(std::vector<CurvePointParams>& parameterizedPoints);
 
+  SurfacePoint getPointAtIndex(int index);
+
+  int getSize();
+
   Vector2 getStartDir();
+
+  std::complex<double> getTangentAtIndex(int index);
 
   void rotate(Vector2 newDir);
 
@@ -43,7 +51,7 @@ public:
 
   void setParameterized(std::vector<CurvePointParams>& parameterizedPoints);
 
-  void setPoints(const std::vector<SurfacePoint>& points);
+  void setPoints(std::vector<SurfacePoint>& points);
 
   void transfer(SurfaceCurve* target, const SurfacePoint& targetMeshStart, const SurfacePoint& targetMeshDirEndpoint);
 
