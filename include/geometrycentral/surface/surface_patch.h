@@ -1,10 +1,10 @@
 #pragma once
 
-#include "geometrycentral/numerical/linear_solvers.h"
 #include "geometrycentral/surface/exact_geodesics.h"
 #include "geometrycentral/surface/flip_geodesics.h"
 #include "geometrycentral/surface/intrinsic_geometry_interface.h"
 #include "geometrycentral/surface/manifold_surface_mesh.h"
+#include "geometrycentral/surface/surface_curve.h"
 #include "geometrycentral/surface/surface_mesh.h"
 #include "geometrycentral/surface/surface_point.h"
 #include "geometrycentral/surface/trace_geodesic.h"
@@ -14,11 +14,6 @@
 
 using namespace geometrycentral;
 using namespace geometrycentral::surface;
-
-struct AxisPointParams {
-  double nextPointDistance;                // distance to next point
-  std::complex<double> nextPointDirection; // outgoing direction relative to incoming direction
-};
 
 struct PatchPointParams {
   size_t closestAxisPoint;                 // index of closest point on axis
@@ -33,18 +28,19 @@ public:
   SurfacePatch(ManifoldSurfaceMesh* mesh, VertexPositionGeometry* geometry, GeodesicAlgorithmExact* mmpSolver,
                VectorHeatMethodSolver* vectorHeatSolver);
 
-  void computeInitialAxisDirection();
-
-  void createCustomAxis(std::vector<Vertex>& axisPoints);
+  void createCustomAxis(std::vector<SurfacePoint>& axisPoints);
 
   void createDefaultAxis();
 
   void deformAxis(int index, std::complex<double> newDir);
 
-  void get(std::vector<SurfacePoint>& axis, std::vector<SurfacePoint>& patch);
+  void getAxis(std::vector<SurfacePoint>& axis);
 
-  void getParameterized(std::vector<AxisPointParams>& parameterizedAxis,
-                        std::vector<PatchPointParams>& parameterizedPatch);
+  void getPoints(std::vector<SurfacePoint>& points);
+
+  void getParameterizedAxis(std::vector<CurvePointParams>& parameterizedAxis);
+
+  void getParameterizedPoints(std::vector<PatchPointParams>& parameterizedPoints);
 
   std::complex<double> getDirAtAxisIndex(int index);
 
@@ -68,60 +64,34 @@ public:
 
   void setAxisPoints(std::vector<SurfacePoint>& axisPoints);
 
-  void setPatchAxis(const std::vector<SurfacePoint>& axis, const std::vector<std::complex<double>>& dirs,
-                    const std::vector<double>& dists);
-
   void setPatchPoints(const std::vector<SurfacePoint>& points);
 
-  void setParameterizedAxis(std::vector<AxisPointParams>& parameterizedAxisPoints);
+  void setParameterizedAxis(std::vector<CurvePointParams>& parameterizedAxisPoints);
 
   void setParameterizedPatch(std::vector<PatchPointParams>& parameterizedPatchPoints);
 
 private:
   bool approxEqual(const SurfacePoint& pA, const SurfacePoint& pB);
 
-  std::complex<double> axisTangent(size_t idx, const std::vector<SurfacePoint>& axis);
-
-  void computeAxisAnglesAndDistances();
-
   std::vector<SurfacePoint> connectPointsWithGeodesic(const SurfacePoint& pt1, const SurfacePoint& pt2,
                                                       double& distance);
-
-  void constructDenselySampledAxis();
 
   size_t indexOfClosestPointOnAxis(double diffusedVal,
                                    const std::vector<std::tuple<SurfacePoint, double>>& zippedDistances);
 
-  Vector2 inTangentBasis(const SurfacePoint& pA, const SurfacePoint& pB, const SurfacePoint& p);
-
   Vector2 localDir(const SurfacePoint& pt1, const SurfacePoint& pt2);
 
-  Vector2 parallelTransport(const SurfacePoint& startPoint, const SurfacePoint& endpoint, double initAngle);
-
   std::vector<SurfacePoint> pruneApproxEqualEntries(const std::vector<SurfacePoint>& source);
-
-  void traceAxis();
 
   std::unique_ptr<ManifoldSurfaceMesh> m_mesh;
   std::unique_ptr<VertexPositionGeometry> m_geometry;
   std::unique_ptr<VectorHeatMethodSolver> m_vectorHeatSolver;
   std::unique_ptr<GeodesicAlgorithmExact> m_mmpSolver;
 
-  std::vector<SurfacePoint> m_patchAxisSparse;
-  std::vector<std::complex<double>> m_patchAxisSparseAngles;
-  std::vector<double> m_patchAxisSparseDistances;
-  std::vector<size_t> m_patchAxisSparseDenseIdx;
+  SurfaceCurve* m_axis;
 
-  std::vector<SurfacePoint> m_patchAxisDense;
-
-  std::vector<PatchPointParams> m_parameterizedPatchPoints;
-  std::vector<SurfacePoint> m_patchPoints;
-
-  SurfacePoint m_startPoint;
-  Vector2 m_initDir;
-
-  SurfacePoint m_savedStartPoint;
-  Vector2 m_savedInitDir;
+  std::vector<PatchPointParams> m_parameterizedPoints;
+  std::vector<SurfacePoint> m_points;
 
   double m_patchSpreadCoefficient;
 };

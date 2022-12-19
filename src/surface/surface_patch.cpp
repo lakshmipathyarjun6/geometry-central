@@ -9,45 +9,11 @@ SurfacePatch::SurfacePatch(ManifoldSurfaceMesh* mesh, VertexPositionGeometry* ge
   m_geometry.reset(geometry);
   m_mmpSolver.reset(mmpSolver);
   m_vectorHeatSolver.reset(vectorHeatSolver);
+
+  m_axis = new SurfaceCurve(mesh, geometry, mmpSolver);
 }
 
-/*
- * The start direction should be determined using the global direction between the first two points
- * but in the tangent basis of the first point.  It can subsequently be overridden by user input via rotation.
- */
-void SurfacePatch::computeInitialAxisDirection() {
-  m_geometry->requireVertexNormals();
-  m_geometry->requireVertexTangentBasis();
-
-  // Special case of single point embedding - axis is useless
-  if (m_patchAxisSparse.size() == 1) {
-    m_initDir = {1.0, 0.0};
-    return;
-  }
-
-  SurfacePoint firstPoint = m_patchAxisSparse[0];
-  SurfacePoint secondPoint = m_patchAxisSparse[1];
-
-  m_initDir = localDir(firstPoint, secondPoint);
-  m_initDir /= m_initDir.norm();
-}
-
-void SurfacePatch::createCustomAxis(std::vector<Vertex>& axisPoints) {
-  m_patchAxisSparse.clear();
-
-  std::unique_ptr<FlipEdgeNetwork> edgeNetwork;
-  edgeNetwork = FlipEdgeNetwork::constructFromPiecewiseDijkstraPath(*m_mesh, *m_geometry, axisPoints);
-  edgeNetwork->iterativeShorten();
-
-  std::vector<std::vector<SurfacePoint>> paths = edgeNetwork->getPathPolyline();
-
-  m_patchAxisSparse = paths[0];
-  m_startPoint = m_patchAxisSparse[0];
-
-  computeInitialAxisDirection();
-  constructDenselySampledAxis();
-  computeAxisAnglesAndDistances();
-}
+void SurfacePatch::createCustomAxis(std::vector<SurfacePoint>& axisPoints) { m_axis->createFromPoints(axisPoints); }
 
 /*
  * A quick and dirty method for automatically generating an initial axis. Heuristic: Want the axis to roughly be aligned
@@ -71,18 +37,18 @@ void SurfacePatch::createDefaultAxis() {
   Vector<double> RHS = Vector<double>::Zero(m_mesh->nVertices());
   Vector<double> distToSource; // actually just a quantity that is inversely proportional to distance
 
-  for (size_t i = 0; i < m_patchPoints.size(); i++) {
-    SurfacePoint pt = m_patchPoints[i];
+  for (size_t i = 0; i < m_points.size(); i++) {
+    SurfacePoint pt = m_points[i];
     RHS[pt.vertex.getIndex()] = 1; // set
     distToSource = solver.solve(RHS);
 
-    for (size_t j = 0; j < m_patchPoints.size(); j++) {
+    for (size_t j = 0; j < m_points.size(); j++) {
       if (j != i) {
-        double dist = 1.0 / distToSource[m_patchPoints[j].vertex.getIndex()];
+        double dist = 1.0 / distToSource[m_points[j].vertex.getIndex()];
         if (dist > maxSoFar) {
           maxSoFar = dist;
           pt1 = pt;
-          pt2 = m_patchPoints[j];
+          pt2 = m_points[j];
         }
       }
     }
@@ -95,58 +61,33 @@ void SurfacePatch::createDefaultAxis() {
 
   std::vector<std::vector<SurfacePoint>> paths = edgeNetwork->getPathPolyline();
 
-  m_patchAxisSparse = paths[0];
-  m_startPoint = m_patchAxisSparse[0];
-  computeInitialAxisDirection();
-  constructDenselySampledAxis();
-  computeAxisAnglesAndDistances();
+  m_axis->setPoints(paths[0]);
 }
 
-void SurfacePatch::deformAxis(int index, std::complex<double> newDir) {
-  assert(index < m_patchAxisSparseAngles.size());
-  m_patchAxisSparseAngles[index] = newDir;
-  traceAxis();
+void SurfacePatch::deformAxis(int index, std::complex<double> newDir) { m_axis->deformAngle(index, newDir); }
+
+void SurfacePatch::getAxis(std::vector<SurfacePoint>& axis) { m_axis->getPoints(axis); }
+
+void SurfacePatch::getPoints(std::vector<SurfacePoint>& points) { points = m_points; }
+
+void SurfacePatch::getParameterizedAxis(std::vector<CurvePointParams>& parameterizedAxis) {
+  m_axis->getParameterized(parameterizedAxis);
 }
 
-void SurfacePatch::get(std::vector<SurfacePoint>& axis, std::vector<SurfacePoint>& patch) {
-  axis = m_patchAxisSparse;
-  patch = m_patchPoints;
+void SurfacePatch::getParameterizedPoints(std::vector<PatchPointParams>& parameterizedPoints) {
+  parameterizedPoints = m_parameterizedPoints;
 }
 
-void SurfacePatch::getParameterized(std::vector<AxisPointParams>& parameterizedAxis,
-                                    std::vector<PatchPointParams>& parameterizedPatch) {
-  parameterizedPatch = m_parameterizedPatchPoints;
+std::complex<double> SurfacePatch::getDirAtAxisIndex(int index) { return m_axis->getAngleAtIndex(index); }
 
-  size_t N = m_patchAxisSparseAngles.size();
-
-  std::vector<AxisPointParams> pAxis(N);
-
-  // First axis point direction and all last point parameters will be ignored
-  for (int i = 0; i < N; i++) {
-    AxisPointParams intermediateParams;
-
-    intermediateParams.nextPointDistance = m_patchAxisSparseDistances[i];
-    intermediateParams.nextPointDirection = m_patchAxisSparseAngles[i];
-
-    pAxis[i] = intermediateParams;
-  }
-
-  parameterizedAxis = pAxis;
-}
-
-std::complex<double> SurfacePatch::getDirAtAxisIndex(int index) {
-  assert(index < m_patchAxisSparseAngles.size());
-  return m_patchAxisSparseAngles[index];
-}
-
-Vector2 SurfacePatch::getInitDir() { return m_initDir; }
+Vector2 SurfacePatch::getInitDir() { return m_axis->getStartDir(); }
 
 double SurfacePatch::getPatchSpreadCoefficient() { return m_patchSpreadCoefficient; }
 
 void SurfacePatch::parameterizePatch() {
-  m_parameterizedPatchPoints.clear();
+  m_parameterizedPoints.clear();
 
-  std::cout << m_patchPoints.size() << std::endl;
+  std::cout << m_points.size() << std::endl;
 
   // Do closest point interpolation.
 
@@ -154,34 +95,39 @@ void SurfacePatch::parameterizePatch() {
   VertexData<double> closestPoint;
 
   // Necessary only if more than one point exists
-  if (m_patchAxisSparse.size() > 1) {
-    zippedDistances.push_back(std::make_tuple(m_startPoint, 0));
+  int axisSize = m_axis->getSize();
+
+  if (axisSize > 1) {
+    SurfacePoint sp = m_axis->getPointAtIndex(0);
+
+    zippedDistances.push_back(std::make_tuple(sp, 0));
+
     double totalDist = 0;
-    for (size_t i = 0; i < m_patchAxisSparse.size() - 1; i++) {
-      SurfacePoint pt2 = m_patchAxisSparse[i + 1];
-      double dist = m_patchAxisSparseDistances[i];
+    for (size_t i = 0; i < axisSize - 1; i++) {
+      SurfacePoint pt2 = m_axis->getPointAtIndex(i + 1);
+      double dist = m_axis->getDistanceAtIndex(i);
       totalDist += dist;
       zippedDistances.push_back(std::make_tuple(pt2, totalDist));
     }
     closestPoint = m_vectorHeatSolver->extendScalar(zippedDistances);
   }
 
-  std::vector<PatchPointParams> ptToParam(m_patchPoints.size());
+  std::vector<PatchPointParams> ptToParam(m_points.size());
 
   double distance;
   size_t cp;
 
-  for (size_t i = 0; i < m_patchPoints.size(); i++) {
-    SurfacePoint patchPoint = m_patchPoints[i];
+  for (size_t i = 0; i < m_points.size(); i++) {
+    SurfacePoint patchPoint = m_points[i];
 
-    if (m_patchAxisSparse.size() > 1) {
+    if (axisSize > 1) {
       double diffusedVal = patchPoint.interpolate(closestPoint);
       cp = indexOfClosestPointOnAxis(diffusedVal, zippedDistances);
     } else {
       cp = 0;
     }
 
-    SurfacePoint axisPoint = m_patchAxisSparse[cp];
+    SurfacePoint axisPoint = m_axis->getPointAtIndex(cp);
 
     std::vector<SurfacePoint> geodesic = connectPointsWithGeodesic(axisPoint, patchPoint, distance);
     std::vector<SurfacePoint> prunedGeodesic = pruneApproxEqualEntries(geodesic);
@@ -202,11 +148,11 @@ void SurfacePatch::parameterizePatch() {
 
     std::complex<double> axisBasis;
 
-    if (m_patchAxisSparse.size() > 1) {
-      axisBasis = axisTangent(m_patchAxisSparseDenseIdx[cp], m_patchAxisDense);
+    if (axisSize > 1) {
+      axisBasis = m_axis->getTangentAtIndex(cp);
       axisBasis /= std::abs(axisBasis);
     } else {
-      axisBasis = m_initDir;
+      axisBasis = m_axis->getStartDir();
     }
 
     dir = dir / axisBasis;
@@ -215,33 +161,33 @@ void SurfacePatch::parameterizePatch() {
     ptToParam[i] = prms;
   }
 
-  m_parameterizedPatchPoints.insert(m_parameterizedPatchPoints.begin(), ptToParam.begin(), ptToParam.end());
+  m_parameterizedPoints.insert(m_parameterizedPoints.begin(), ptToParam.begin(), ptToParam.end());
 }
 
 void SurfacePatch::reconstructPatch() {
-  m_patchPoints.clear();
+  m_points.clear();
 
   // Use distances/directions to reconstruct patches from sparse axis
   SurfacePoint pathEndpoint;
   TraceGeodesicResult tracedGeodesic;
 
-  std::vector<SurfacePoint> constructedPatch(m_parameterizedPatchPoints.size());
+  std::vector<SurfacePoint> constructedPatch(m_parameterizedPoints.size());
 
-  for (size_t i = 0; i < m_parameterizedPatchPoints.size(); i++) {
-    PatchPointParams p = m_parameterizedPatchPoints[i];
+  for (size_t i = 0; i < m_parameterizedPoints.size(); i++) {
+    PatchPointParams p = m_parameterizedPoints[i];
     std::complex<double> dir = p.axisPointDirection;
     double distance = m_patchSpreadCoefficient * p.axisPointDistance;
-    SurfacePoint startPoint = m_patchAxisSparse[p.closestAxisPoint];
+    SurfacePoint startPoint = m_axis->getPointAtIndex(p.closestAxisPoint);
 
     dir /= std::abs(dir);
 
     std::complex<double> axisBasis;
 
-    if (m_patchAxisSparse.size() > 1) {
-      axisBasis = axisTangent(m_patchAxisSparseDenseIdx[p.closestAxisPoint], m_patchAxisDense);
+    if (m_axis->getSize() > 1) {
+      axisBasis = m_axis->getTangentAtIndex(p.closestAxisPoint);
       axisBasis /= std::abs(axisBasis);
     } else {
-      axisBasis = m_initDir;
+      axisBasis = m_axis->getStartDir();
     }
 
     dir *= axisBasis;
@@ -250,26 +196,20 @@ void SurfacePatch::reconstructPatch() {
     if (distance <= 0) {
       pathEndpoint = startPoint;
     } else {
-      tracedGeodesic =
-          traceGeodesic(*(m_geometry), m_patchAxisSparse[p.closestAxisPoint], Vector2::fromComplex(distance * dir));
+      tracedGeodesic = traceGeodesic(*(m_geometry), m_axis->getPointAtIndex(p.closestAxisPoint),
+                                     Vector2::fromComplex(distance * dir));
       pathEndpoint = tracedGeodesic.endPoint;
     }
 
     constructedPatch[i] = pathEndpoint;
   }
 
-  m_patchPoints.insert(m_patchPoints.begin(), constructedPatch.begin(), constructedPatch.end());
+  m_points.insert(m_points.begin(), constructedPatch.begin(), constructedPatch.end());
 }
 
-void SurfacePatch::rotateAxis(Vector2 newDir) {
-  m_initDir = newDir;
-  traceAxis();
-}
+void SurfacePatch::rotateAxis(Vector2 newDir) { m_axis->rotate(newDir); }
 
-void SurfacePatch::saveAxisStartPointAndDirection() {
-  m_savedStartPoint = m_startPoint;
-  m_savedInitDir = m_initDir;
-}
+void SurfacePatch::saveAxisStartPointAndDirection() { m_axis->saveStartParams(); }
 
 void SurfacePatch::setPatchSpreadCoefficient(double patchSpreadCoefficient) {
   m_patchSpreadCoefficient = patchSpreadCoefficient;
@@ -278,101 +218,44 @@ void SurfacePatch::setPatchSpreadCoefficient(double patchSpreadCoefficient) {
 
 void SurfacePatch::transfer(SurfacePatch* target, const SurfacePoint& targetMeshStart,
                             const SurfacePoint& targetMeshDirEndpoint) {
-  // All angles and distances should be the same, save for the first one (which is ignored)
+  // First transfer the axis
 
-  // Note that we deliberately adjust the phasor multiplier since we want the MIRROR image
-  // to be generated on the target domain
-
-  target->m_patchAxisSparseAngles.clear();
-  target->m_patchAxisSparseDistances.clear();
-
-  target->m_patchAxisSparseDistances.insert(target->m_patchAxisSparseDistances.end(),
-                                            m_patchAxisSparseDistances.begin(), m_patchAxisSparseDistances.end());
-
-  target->m_startPoint = targetMeshStart;
-  target->m_initDir = target->localDir(targetMeshStart, targetMeshDirEndpoint);
-
-  for (int i = 0; i < m_patchAxisSparseAngles.size(); i++) {
-    std::complex<double> adjustedDir = {m_patchAxisSparseAngles[i].real(), -m_patchAxisSparseAngles[i].imag()};
-    target->m_patchAxisSparseAngles.push_back(adjustedDir);
-  }
-
-  target->traceAxis();
+  target->m_axis->transfer(m_axis, targetMeshStart, targetMeshDirEndpoint);
 
   // Compute distances and directions on S1, then reconstruct contact on S2
   // Reconstruct patch only if patch has been parameterized on source domain
 
-  if (m_parameterizedPatchPoints.size() > 0) {
-    target->m_parameterizedPatchPoints.clear();
+  if (m_parameterizedPoints.size() > 0) {
+    target->m_parameterizedPoints.clear();
 
-    for (int i = 0; i < m_parameterizedPatchPoints.size(); i++) {
-      PatchPointParams sourceParams = m_parameterizedPatchPoints[i];
+    for (int i = 0; i < m_parameterizedPoints.size(); i++) {
+      PatchPointParams sourceParams = m_parameterizedPoints[i];
 
       std::complex<double> sourceDirection = sourceParams.axisPointDirection;
 
       std::complex<double> adjustedDir = {sourceDirection.real(), -sourceDirection.imag()};
       PatchPointParams targetParams = {sourceParams.closestAxisPoint, sourceParams.axisPointDistance, adjustedDir};
-      target->m_parameterizedPatchPoints.push_back(targetParams);
+      target->m_parameterizedPoints.push_back(targetParams);
     }
 
     target->reconstructPatch();
   }
 }
 
-void SurfacePatch::translate(const SurfacePoint& newStartPoint) {
-  assert(m_savedStartPoint != SurfacePoint());
-  assert(m_savedInitDir != Vector2());
+void SurfacePatch::translate(const SurfacePoint& newStartPoint) { m_axis->translate(newStartPoint); }
 
-  m_initDir = parallelTransport(m_savedStartPoint, newStartPoint, m_savedInitDir.arg());
-  m_startPoint = newStartPoint;
+void SurfacePatch::setAxisPoints(std::vector<SurfacePoint>& axisPoints) { m_axis->setPoints(axisPoints); }
 
-  traceAxis();
-}
+void SurfacePatch::setPatchPoints(const std::vector<SurfacePoint>& points) { m_points = points; }
 
-void SurfacePatch::setAxisPoints(std::vector<SurfacePoint>& axisPoints) {
-  m_patchAxisSparse.clear();
-
-  m_patchAxisSparse.insert(m_patchAxisSparse.begin(), axisPoints.begin(), axisPoints.end());
-
-  m_startPoint = m_patchAxisSparse[0];
-
-  computeInitialAxisDirection();
-  constructDenselySampledAxis();
-  computeAxisAnglesAndDistances();
-}
-
-void SurfacePatch::setPatchAxis(const std::vector<SurfacePoint>& axis, const std::vector<std::complex<double>>& dirs,
-                                const std::vector<double>& dists) {
-  m_patchAxisSparse = axis;
-  m_startPoint = m_patchAxisSparse[0];
-  m_patchAxisSparseAngles = dirs;
-  m_patchAxisSparseDistances = dists;
-
-  computeInitialAxisDirection();
-  traceAxis();
-}
-
-void SurfacePatch::setPatchPoints(const std::vector<SurfacePoint>& points) { m_patchPoints = points; }
-
-void SurfacePatch::setParameterizedAxis(std::vector<AxisPointParams>& parameterizedAxisPoints) {
-  assert(parameterizedAxisPoints.size() == m_patchAxisSparse.size());
-  assert(m_patchAxisSparse.size() == m_patchAxisDense.size());
-
-  m_patchAxisSparseDistances.clear();
-  m_patchAxisSparseAngles.clear();
-
-  for (int i = 0; i < parameterizedAxisPoints.size(); i++) {
-    AxisPointParams app = parameterizedAxisPoints[i];
-
-    m_patchAxisSparseDistances.push_back(app.nextPointDistance);
-    m_patchAxisSparseAngles.push_back(app.nextPointDirection);
-  }
+void SurfacePatch::setParameterizedAxis(std::vector<CurvePointParams>& parameterizedAxisPoints) {
+  m_axis->setParameterized(parameterizedAxisPoints);
 }
 
 void SurfacePatch::setParameterizedPatch(std::vector<PatchPointParams>& parameterizedPatchPoints) {
-  m_parameterizedPatchPoints.clear();
-  m_parameterizedPatchPoints.insert(m_parameterizedPatchPoints.begin(), parameterizedPatchPoints.begin(),
-                                    parameterizedPatchPoints.end());
+  m_parameterizedPoints.clear();
+  m_parameterizedPoints.insert(m_parameterizedPoints.begin(), parameterizedPatchPoints.begin(),
+                               parameterizedPatchPoints.end());
 }
 
 // Begin private utils
@@ -393,78 +276,6 @@ bool SurfacePatch::approxEqual(const SurfacePoint& pA, const SurfacePoint& pB) {
     break;
   }
   throw std::logic_error("bad switch"); // shouldn't get here
-}
-
-/*
- * Compute the direction of the basis of the axis curve, at the given point.
- */
-std::complex<double> SurfacePatch::axisTangent(size_t idx, const std::vector<SurfacePoint>& axis) {
-  int nextDir = (idx == axis.size() - 1) ? -1 : 1;
-  SurfacePoint pt1 = axis[idx];
-  SurfacePoint pt2 = axis[idx + nextDir];
-  std::complex<double> ref = localDir(pt1, pt2);
-  return ref;
-}
-
-/*
- * Given a series of SurfacePoints (representing a curve) on a mesh, compute a complex number z representing the
- * "angle" at each point of the polygon. The argument std::arg(z) represents the rotation from the negative of the
- * tangent vector of the current edge to the tangent vector of the next edge; the reason for doing this this way is that
- * the local directions need to be computed at a common point (in the same local tangent space), i.e. at each point we
- * consider the two *outgoing* vectors along its adjacent edges. (The turning angle is sgn(angle)*PI - angle.) Also for
- * each point, computes the distance to the next point.
- *
- * <sparseCurve> is the original curve. The angles and distances returned will correspond to this curve.
- * <denseCurve> is assumed to be densely sampled, s.t. angles & distances are easily computed without using the log map.
- * <idxIntoDense> indicates how sparse points get mapped into the dense vector.
- *
- * Warning: If the curve is open (like if the curve represents an axis), then the angles at the endpoints will be
- * garbage (as well as the distance value at the last point) -- this isn't a problem since we never use those values
- * later on, but just to be aware.
- */
-void SurfacePatch::computeAxisAnglesAndDistances() {
-
-  size_t N = m_patchAxisSparse.size(); // # of vertices in the polygon
-  size_t M = m_patchAxisDense.size();
-
-  std::vector<std::complex<double>> angles(N);
-  std::vector<double> distances(N);
-
-  SurfacePoint currNode, prevNode, nextNode;
-  std::complex<double> origDir, offsetDir, adjustedDir;
-  Vector3 currPos, nextPos;
-  size_t currIdx, nextIdx, prevIdx;
-  for (size_t i = 0; i < N; i++) {
-    currIdx = m_patchAxisSparseDenseIdx[i];
-    nextIdx = mod(currIdx + 1, M);
-    prevIdx = mod(currIdx - 1, M);
-    currNode = m_patchAxisDense[currIdx];
-    nextNode = m_patchAxisDense[nextIdx];
-    prevNode = m_patchAxisDense[prevIdx];
-
-    double totalDist = 0;
-    SurfacePoint pt1, pt2;
-
-    for (size_t j = currIdx; j < m_patchAxisSparseDenseIdx[mod(i + 1, N)]; j++) {
-      pt1 = m_patchAxisDense[j];
-      pt2 = m_patchAxisDense[j + 1];
-      Vector3 a = pt1.interpolate(m_geometry->inputVertexPositions);
-      Vector3 b = pt2.interpolate(m_geometry->inputVertexPositions);
-      totalDist += (a - b).norm();
-    }
-    distances[i] = totalDist;
-
-    origDir = localDir(currNode, nextNode);
-    offsetDir = localDir(currNode, prevNode);
-
-    // CCW angle of rotation to get to next tangent vector; for convex corners, rotation is CCW (and angle is
-    // positive), CW for non-convex corners (angle is negative).
-    adjustedDir = origDir / offsetDir;
-    angles[i] = adjustedDir;
-  }
-
-  m_patchAxisSparseAngles = angles;
-  m_patchAxisSparseDistances = distances;
 }
 
 /*
@@ -495,40 +306,6 @@ std::vector<SurfacePoint> SurfacePatch::connectPointsWithGeodesic(const SurfaceP
 }
 
 /*
- * Given a curve (possibly closed), fill in any gaps with geodesics.
- * Returns a vector of SurfacePoints with no gaps (first argument of the tuple.)
- * Also returns a map <idxIntoDense> (2nd argument of the tuple) where the ith entry is the index of the ith point in
- * the original curve in the dense curve vector.
- */
-void SurfacePatch::constructDenselySampledAxis() {
-  m_patchAxisDense.clear();
-  m_patchAxisSparseDenseIdx.clear();
-
-  std::vector<SurfacePoint> denseCurve;
-  std::vector<size_t> idxIntoDense(m_patchAxisSparse.size());
-
-  size_t currIdx = 0;
-  size_t N = m_patchAxisSparse.size();
-
-  SurfacePoint pt1, pt2;
-  double dist;
-
-  // NOTE: Tossing out dense axis - will be same as sparse
-  // Workaround until cutting to SurfaceCurve
-
-  for (size_t i = 0; i < N; i++) {
-    pt1 = m_patchAxisSparse[i];
-    pt2 = m_patchAxisSparse[mod(i + 1, N)];
-    denseCurve.push_back(pt1);
-    idxIntoDense[i] = currIdx;
-    currIdx++;
-  }
-
-  m_patchAxisDense = denseCurve;
-  m_patchAxisSparseDenseIdx = idxIntoDense;
-}
-
-/*
  * Given a value at a SurfacePoint and the initial values of points in the axis, determine the closest point on the
  * axis.
  */
@@ -549,41 +326,6 @@ size_t SurfacePatch::indexOfClosestPointOnAxis(double diffusedVal,
   assert(false); // should never get here
 
   return -1;
-}
-
-Vector2 SurfacePatch::inTangentBasis(const SurfacePoint& pA, const SurfacePoint& pB, const SurfacePoint& p) {
-
-  Vector2 vecP;
-  Vector3 posA = pA.interpolate(m_geometry->vertexPositions);
-  Vector3 posB = pB.interpolate(m_geometry->vertexPositions);
-  Vector3 vec = posB - posA;
-
-  switch (p.type) {
-  case (SurfacePointType::Vertex): {
-    Vertex vP = p.vertex;
-    Vector3 basisX = m_geometry->vertexTangentBasis[vP][0];
-    Vector3 basisY = m_geometry->vertexTangentBasis[vP][1];
-    vecP = {dot(vec, basisX), dot(vec, basisY)};
-    break;
-  }
-  case (SurfacePointType::Edge): {
-    Edge eP = p.edge;
-    Face f = sharedFace(pA, pB); // face containing vec
-    Vector3 fN = m_geometry->faceNormals[f];
-    Vector3 basisX = m_geometry->halfedgeVector(eP.halfedge()).normalize();
-    Vector3 basisY = cross(basisX, fN);
-    vecP = {dot(vec, basisX), dot(vec, basisY)};
-    break;
-  }
-  case (SurfacePointType::Face): {
-    Face fP = p.face;
-    Vector3 basisX = m_geometry->faceTangentBasis[fP][0];
-    Vector3 basisY = m_geometry->faceTangentBasis[fP][1];
-    vecP = {dot(vec, basisX), dot(vec, basisY)};
-    break;
-  }
-  }
-  return vecP.normalize();
 }
 
 /*
@@ -659,48 +401,6 @@ Vector2 SurfacePatch::localDir(const SurfacePoint& pt1, const SurfacePoint& pt2)
   return dir;
 }
 
-Vector2 SurfacePatch::parallelTransport(const SurfacePoint& startPoint, const SurfacePoint& endpoint,
-                                        double initAngle) {
-  double distance;
-
-  std::vector<SurfacePoint> path = connectPointsWithGeodesic(startPoint, endpoint, distance);
-
-  m_geometry->requireTransportVectorsAlongHalfedge();
-  m_geometry->requireVertexTangentBasis();
-  m_geometry->requireFaceTangentBasis();
-  m_geometry->requireFaceNormals();
-
-  Vector2 result = Vector2::fromAngle(initAngle);
-
-  size_t nNodes = path.size();
-  for (size_t i = 0; i < nNodes - 1; i++) {
-    SurfacePoint pA = path[i];
-    SurfacePoint pB = path[i + 1];
-    assert(sharedFace(pA, pB) != Face());
-
-    if (pA.type == SurfacePointType::Face && pB.type == SurfacePointType::Face && pA.face == pB.face) continue;
-    if (pA.type == SurfacePointType::Edge && pB.type == SurfacePointType::Edge && pA.edge == pB.edge) continue;
-
-    Vector2 rot;
-    if (pA.type == SurfacePointType::Vertex && pB.type == SurfacePointType::Vertex) {
-      // Determine the halfedge between pA.vertex -> pB.vertex
-      Halfedge heAB = Halfedge();
-      for (Halfedge he : pA.vertex.outgoingHalfedges()) {
-        if (he.tipVertex() == pB.vertex) heAB = he;
-      }
-      assert(heAB != Halfedge());
-      rot = m_geometry->transportVectorsAlongHalfedge[heAB];
-    } else {
-      Vector2 vecA = inTangentBasis(pA, pB, pA);
-      Vector2 vecB = inTangentBasis(pA, pB, pB);
-      rot = vecB / vecA;
-    }
-    result = rot * result;
-  }
-
-  return result;
-}
-
 std::vector<SurfacePoint> SurfacePatch::pruneApproxEqualEntries(const std::vector<SurfacePoint>& source) {
   std::vector<SurfacePoint> result;
 
@@ -717,63 +417,4 @@ std::vector<SurfacePoint> SurfacePatch::pruneApproxEqualEntries(const std::vecto
   }
 
   return result;
-}
-
-void SurfacePatch::traceAxis() {
-  bool singlePointAxis = m_patchAxisSparse.size() == 1;
-
-  // Clear all existing data
-  m_patchAxisSparse.clear();
-  m_patchAxisSparseDenseIdx.clear();
-  m_patchAxisDense.clear();
-
-  // Place first points
-  m_patchAxisSparse.emplace_back(m_startPoint);
-  m_patchAxisDense.emplace_back(m_startPoint);
-  m_patchAxisSparseDenseIdx.push_back(0);
-
-  // Do nothing more if single point axis
-  if (singlePointAxis) {
-    return;
-  }
-
-  // Declare some variables
-  size_t N = m_patchAxisSparseAngles.size();
-  SurfacePoint pathEndpoint;
-  std::complex<double> endingDir;
-  TraceGeodesicResult tracedGeodesic;
-  TraceOptions traceOptions;
-  traceOptions.includePath = true;
-
-  // Trace out from first to second point
-  m_initDir /= m_initDir.norm();
-  tracedGeodesic = traceGeodesic(*(m_geometry), m_startPoint,
-                                 Vector2::fromComplex(m_initDir * m_patchAxisSparseDistances[0]), traceOptions);
-
-  pathEndpoint = tracedGeodesic.endPoint;
-  m_patchAxisDense.insert(m_patchAxisDense.end(), tracedGeodesic.pathPoints.begin() + 1,
-                          tracedGeodesic.pathPoints.end());
-  m_patchAxisSparse.push_back(pathEndpoint);
-  m_patchAxisSparseDenseIdx.push_back(m_patchAxisDense.size() - 1);
-  endingDir = -tracedGeodesic.endingDir;
-
-  // Trace the rest
-  for (size_t i = 1; i < N - 1; i++) {
-    // Get the corresponding direction on S2
-    endingDir /= std::abs(endingDir);
-    std::complex<double> adjustedDirS2 = endingDir * m_patchAxisSparseAngles[i];
-    adjustedDirS2 /= std::abs(adjustedDirS2); // make sure direction is unit
-
-    // Trace geodesic from last point and record where it ended up
-    double dist = m_patchAxisSparseDistances[i];
-    tracedGeodesic = traceGeodesic(*(m_geometry), m_patchAxisSparse[m_patchAxisSparse.size() - 1],
-                                   Vector2::fromComplex(adjustedDirS2 * dist), traceOptions);
-
-    pathEndpoint = tracedGeodesic.endPoint;
-    m_patchAxisDense.insert(m_patchAxisDense.end(), tracedGeodesic.pathPoints.begin() + 1,
-                            tracedGeodesic.pathPoints.end());
-    m_patchAxisSparse.push_back(pathEndpoint);
-    m_patchAxisSparseDenseIdx.push_back(m_patchAxisDense.size() - 1);
-    endingDir = -tracedGeodesic.endingDir;
-  }
 }

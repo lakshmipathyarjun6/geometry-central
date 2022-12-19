@@ -53,11 +53,16 @@ void SurfaceCurve::deformDistance(int pointIndex, double newDist) {
   recompute();
 }
 
-void SurfaceCurve::get(std::vector<SurfacePoint>& points) { points = m_points; }
+void SurfaceCurve::getPoints(std::vector<SurfacePoint>& points) { points = m_points; }
 
-std::complex<double> SurfaceCurve::getDirAtIndex(int index) {
+std::complex<double> SurfaceCurve::getAngleAtIndex(int index) {
   assert(index < m_angles.size());
   return m_angles[index];
+}
+
+double SurfaceCurve::getDistanceAtIndex(int index) {
+  assert(index < m_distances.size());
+  return m_distances[index];
 }
 
 double SurfaceCurve::getLinearScaleCoefficient() { return m_linearScaleCoefficient; }
@@ -80,7 +85,22 @@ void SurfaceCurve::getParameterized(std::vector<CurvePointParams>& parameterized
   parameterizedPoints = pCurve;
 }
 
+SurfacePoint SurfaceCurve::getPointAtIndex(int index) {
+  assert(index < m_points.size());
+  return m_points[index];
+}
+
+int SurfaceCurve::getSize() { return m_points.size(); }
+
 Vector2 SurfaceCurve::getStartDir() { return m_initDir; }
+
+std::complex<double> SurfaceCurve::getTangentAtIndex(int index) {
+  int nextDir = (index == m_points.size() - 1) ? -1 : 1;
+  SurfacePoint pt1 = m_points[index];
+  SurfacePoint pt2 = m_points[index + nextDir];
+  std::complex<double> ref = localDir(pt1, pt2);
+  return ref;
+}
 
 void SurfaceCurve::rotate(Vector2 newDir) {
   m_initDir = newDir;
@@ -111,8 +131,12 @@ void SurfaceCurve::setParameterized(std::vector<CurvePointParams>& parameterized
   }
 }
 
-void SurfaceCurve::setPoints(const std::vector<SurfacePoint>& points) {
-  m_points = points;
+void SurfaceCurve::setPoints(std::vector<SurfacePoint>& points) {
+  assert(points.size() > 0);
+
+  m_points.clear();
+
+  m_points.insert(m_points.end(), points.begin(), points.end());
 
   m_startPoint = m_points[0];
 
@@ -165,7 +189,6 @@ bool SurfaceCurve::approxEqual(const SurfacePoint& pA, const SurfacePoint& pB) {
 }
 
 void SurfaceCurve::computeAnglesAndDistances() {
-
   size_t N = m_points.size();
 
   std::vector<std::complex<double>> angles(N);
