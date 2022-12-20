@@ -220,7 +220,7 @@ void SurfacePatch::transfer(SurfacePatch* target, const SurfacePoint& targetMesh
                             const SurfacePoint& targetMeshDirEndpoint) {
   // First transfer the axis
 
-  target->m_axis->transfer(m_axis, targetMeshStart, targetMeshDirEndpoint);
+  m_axis->transfer(target->m_axis, targetMeshStart, targetMeshDirEndpoint);
 
   // Compute distances and directions on S1, then reconstruct contact on S2
   // Reconstruct patch only if patch has been parameterized on source domain
