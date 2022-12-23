@@ -84,32 +84,36 @@ Vector2 SurfacePatch::getInitDir() { return m_axis->getStartDir(); }
 
 double SurfacePatch::getPatchSpreadCoefficient() { return m_patchSpreadCoefficient; }
 
-void SurfacePatch::parameterizePatch() {
+void SurfacePatch::parameterizePatch(std::map<size_t, size_t> customClosestPointBinding) {
   m_parameterizedPoints.clear();
 
   std::cout << m_points.size() << std::endl;
 
   // Do closest point interpolation.
 
-  std::vector<std::tuple<SurfacePoint, double>> zippedDistances; // distances along curve
-  VertexData<double> closestPoint;
+  bool closestPointBindingProvided = customClosestPointBinding.size() > 0;
 
-  // Necessary only if more than one point exists
+  std::vector<std::tuple<SurfacePoint, double>> zippedDistances; // distances along curve
+  VertexData<double> closestPointData;
+
   int axisSize = m_axis->getSize();
 
-  if (axisSize > 1) {
+  // Default behavior - ignore if custom binding is provided
+  if (!closestPointBindingProvided) {
     SurfacePoint sp = m_axis->getPointAtIndex(0);
 
     zippedDistances.push_back(std::make_tuple(sp, 0));
 
     double totalDist = 0;
+
     for (size_t i = 0; i < axisSize - 1; i++) {
       SurfacePoint pt2 = m_axis->getPointAtIndex(i + 1);
       double dist = m_axis->getDistanceAtIndex(i);
       totalDist += dist;
       zippedDistances.push_back(std::make_tuple(pt2, totalDist));
     }
-    closestPoint = m_vectorHeatSolver->extendScalar(zippedDistances);
+
+    closestPointData = m_vectorHeatSolver->extendScalar(zippedDistances);
   }
 
   std::vector<PatchPointParams> ptToParam(m_points.size());
@@ -120,11 +124,11 @@ void SurfacePatch::parameterizePatch() {
   for (size_t i = 0; i < m_points.size(); i++) {
     SurfacePoint patchPoint = m_points[i];
 
-    if (axisSize > 1) {
-      double diffusedVal = patchPoint.interpolate(closestPoint);
+    if (!closestPointBindingProvided) {
+      double diffusedVal = patchPoint.interpolate(closestPointData);
       cp = indexOfClosestPointOnAxis(diffusedVal, zippedDistances);
     } else {
-      cp = 0;
+      cp = customClosestPointBinding[i];
     }
 
     SurfacePoint axisPoint = m_axis->getPointAtIndex(cp);
@@ -148,12 +152,8 @@ void SurfacePatch::parameterizePatch() {
 
     std::complex<double> axisBasis;
 
-    if (axisSize > 1) {
-      axisBasis = m_axis->getTangentAtIndex(cp);
-      axisBasis /= std::abs(axisBasis);
-    } else {
-      axisBasis = m_axis->getStartDir();
-    }
+    axisBasis = m_axis->getTangentAtIndex(cp);
+    axisBasis /= std::abs(axisBasis);
 
     dir = dir / axisBasis;
 
@@ -183,12 +183,8 @@ void SurfacePatch::reconstructPatch() {
 
     std::complex<double> axisBasis;
 
-    if (m_axis->getSize() > 1) {
-      axisBasis = m_axis->getTangentAtIndex(p.closestAxisPoint);
-      axisBasis /= std::abs(axisBasis);
-    } else {
-      axisBasis = m_axis->getStartDir();
-    }
+    axisBasis = m_axis->getTangentAtIndex(p.closestAxisPoint);
+    axisBasis /= std::abs(axisBasis);
 
     dir *= axisBasis;
 
