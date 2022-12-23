@@ -48,7 +48,7 @@ public:
 
   double getPatchSpreadCoefficient();
 
-  void parameterizePatch();
+  void parameterizePatch(std::map<size_t, size_t> customClosestPointBinding = {});
 
   void reconstructPatch();
 
