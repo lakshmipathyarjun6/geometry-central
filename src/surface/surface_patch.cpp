@@ -84,7 +84,7 @@ Vector2 SurfacePatch::getInitDir() { return m_axis->getStartDir(); }
 
 double SurfacePatch::getPatchSpreadCoefficient() { return m_patchSpreadCoefficient; }
 
-void SurfacePatch::parameterizePatch(std::map<size_t, size_t> customClosestPointBinding) {
+void SurfacePatch::parameterizePatch(bool useFastParameterization, std::map<size_t, size_t> customClosestPointBinding) {
   m_parameterizedPoints.clear();
 
   std::cout << m_points.size() << std::endl;
@@ -118,6 +118,7 @@ void SurfacePatch::parameterizePatch(std::map<size_t, size_t> customClosestPoint
 
   std::vector<PatchPointParams> ptToParam(m_points.size());
 
+  std::complex<double> dir;
   double distance;
   size_t cp;
 
@@ -133,11 +134,17 @@ void SurfacePatch::parameterizePatch(std::map<size_t, size_t> customClosestPoint
 
     SurfacePoint axisPoint = m_axis->getPointAtIndex(cp);
 
-    std::vector<SurfacePoint> geodesic = connectPointsWithGeodesic(axisPoint, patchPoint, distance);
-    std::vector<SurfacePoint> prunedGeodesic = pruneApproxEqualEntries(geodesic);
-
-    // Compute direction.
-    std::complex<double> dir = localDir(axisPoint, prunedGeodesic[1]);
+    // Fast = logamp via VHM (accuracy increases with denser sampling, but poor on coarse meshes)
+    // Slow = MMP (good for coarse meshes, but does not scale to higher sampling density)
+    if (useFastParameterization) {
+      VertexData<Vector2> logMap = m_vectorHeatSolver->computeLogMap(axisPoint);
+      dir = evaluateLogMap(logMap, patchPoint);
+      distance = std::abs(dir);
+    } else {
+      std::vector<SurfacePoint> geodesic = connectPointsWithGeodesic(axisPoint, patchPoint, distance);
+      std::vector<SurfacePoint> prunedGeodesic = pruneApproxEqualEntries(geodesic);
+      dir = localDir(axisPoint, prunedGeodesic[1]);
+    }
 
     // Edge case: if distance is 0, then point is on axis
     // In which case just assign an arbitrary direction and let the distance
@@ -299,6 +306,28 @@ std::vector<SurfacePoint> SurfacePatch::connectPointsWithGeodesic(const SurfaceP
   std::reverse(path.begin(), path.end());
 
   return path;
+}
+
+Vector2 SurfacePatch::evaluateLogMap(const VertexData<Vector2>& logMap, const SurfacePoint& pt) {
+
+  if (pt.type == SurfacePointType::Vertex) {
+    return logMap[pt.vertex];
+  }
+  if (pt.type == SurfacePointType::Edge) {
+    Edge e = pt.edge;
+    double t = pt.tEdge;
+    return (1.0 - t) * logMap[e.firstVertex()] + t * logMap[e.secondVertex()];
+  }
+  // face
+  Face f = pt.face;
+  Vector3 fCoords = pt.faceCoords;
+  Vector2 result = {0, 0};
+  size_t i = 0;
+  for (Vertex v : f.adjacentVertices()) {
+    result += fCoords[i] * logMap[v];
+    i++;
+  }
+  return result;
 }
 
 /*
