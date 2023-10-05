@@ -48,7 +48,7 @@ public:
 
   double getPatchSpreadCoefficient();
 
-  void parameterizePatch(std::map<size_t, size_t> customClosestPointBinding = {});
+  void parameterizePatch(bool useFastParameterization = false, std::map<size_t, size_t> customClosestPointBinding = {});
 
   void reconstructPatch();
 
@@ -75,6 +75,8 @@ private:
 
   std::vector<SurfacePoint> connectPointsWithGeodesic(const SurfacePoint& pt1, const SurfacePoint& pt2,
                                                       double& distance);
+
+  Vector2 evaluateLogMap(const VertexData<Vector2>& logMap, const SurfacePoint& pt);
 
   size_t indexOfClosestPointOnAxis(double diffusedVal,
                                    const std::vector<std::tuple<SurfacePoint, double>>& zippedDistances);
