@@ -14,6 +14,45 @@ struct CurvePointParams {
   std::complex<double> nextPointDirection; // outgoing direction relative to incoming direction
 };
 
+// Limited class which can be used (cautiously) with non-manifold meshes
+class SurfaceCurveLite {
+
+public:
+  SurfaceCurveLite(SurfaceMesh* mesh, VertexPositionGeometry* geometry, GeodesicAlgorithmExact* mmpSolver);
+
+  void getParameterized(std::vector<CurvePointParams>& parameterizedPoints);
+
+  SurfacePoint getPointAtIndex(int index);
+
+  void getPoints(std::vector<SurfacePoint>& points);
+
+  std::complex<double> getTangentAtIndex(int index);
+
+  friend class SurfaceCurve;
+
+private:
+  Vector2 localDir(const SurfacePoint& pt1, const SurfacePoint& pt2);
+
+  void recompute();
+
+  SurfacePoint m_startPoint;
+  Vector2 m_initDir;
+
+  SurfacePoint m_savedStartPoint;
+  Vector2 m_savedInitDir;
+
+  std::vector<SurfacePoint> m_points;
+  std::vector<std::complex<double>> m_angles;
+  std::vector<double> m_distances;
+
+  std::unique_ptr<SurfaceMesh> m_mesh;
+  std::unique_ptr<VertexPositionGeometry> m_geometry;
+  std::unique_ptr<GeodesicAlgorithmExact> m_mmpSolver;
+
+  double m_linearScaleCoefficient;
+};
+
+// Complete class which requires manifold meshes
 class SurfaceCurve {
 
 public:
@@ -54,6 +93,9 @@ public:
   void setPoints(std::vector<SurfacePoint>& points);
 
   void transfer(SurfaceCurve* target, const SurfacePoint& targetMeshStart, const SurfacePoint& targetMeshDirEndpoint);
+
+  void transfer(SurfaceCurveLite* target, const SurfacePoint& targetMeshStart,
+                const SurfacePoint& targetMeshDirEndpoint);
 
   void translate(const SurfacePoint& newStartPoint);
 

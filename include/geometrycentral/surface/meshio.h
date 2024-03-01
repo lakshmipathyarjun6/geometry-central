@@ -42,6 +42,10 @@ loadMesh(std::string filename, std::string type = "");
 std::tuple<std::unique_ptr<ManifoldSurfaceMesh>, std::unique_ptr<VertexPositionGeometry>>
 loadMeshFromExplicitGeometry(std::vector<std::vector<size_t>>& polygons, std::vector<Vector3>& vertexCoordinates);
 
+// Load mesh data from arbitrary source providing raw geometry information (possibly non-manifold mesh)
+std::tuple<std::unique_ptr<SurfaceMesh>, std::unique_ptr<VertexPositionGeometry>>
+loadPossiblyNonManifoldMeshFromExplicitGeometry(std::vector<std::vector<size_t>>& polygons,
+                                                std::vector<Vector3>& vertexCoordinates);
 
 // Write a surface mesh
 void writeSurfaceMesh(SurfaceMesh& mesh, EmbeddedGeometryInterface& geometry, std::string filename,

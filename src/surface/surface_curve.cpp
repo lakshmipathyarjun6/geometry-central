@@ -2,6 +2,47 @@
 
 // Public Utils
 
+SurfaceCurveLite::SurfaceCurveLite(SurfaceMesh* mesh, VertexPositionGeometry* geometry,
+                                   GeodesicAlgorithmExact* mmpSolver)
+    : m_linearScaleCoefficient(1.0) {
+  m_mesh.reset(mesh);
+  m_geometry.reset(geometry);
+  m_mmpSolver.reset(mmpSolver);
+}
+
+void SurfaceCurveLite::getParameterized(std::vector<CurvePointParams>& parameterizedPoints) {
+  size_t N = m_angles.size();
+
+  std::vector<CurvePointParams> pCurve(N);
+
+  // First axis point direction and all last point parameters will be ignored
+  for (int i = 0; i < N; i++) {
+    CurvePointParams intermediateParams;
+
+    intermediateParams.nextPointDistance = m_distances[i];
+    intermediateParams.nextPointDirection = m_angles[i];
+
+    pCurve[i] = intermediateParams;
+  }
+
+  parameterizedPoints = pCurve;
+}
+
+SurfacePoint SurfaceCurveLite::getPointAtIndex(int index) {
+  assert(index < m_points.size());
+  return m_points[index];
+}
+
+void SurfaceCurveLite::getPoints(std::vector<SurfacePoint>& points) { points = m_points; }
+
+std::complex<double> SurfaceCurveLite::getTangentAtIndex(int index) {
+  int nextDir = (index == m_points.size() - 1) ? -1 : 1;
+  SurfacePoint pt1 = m_points[index];
+  SurfacePoint pt2 = m_points[index + nextDir];
+  std::complex<double> ref = localDir(pt1, pt2);
+  return ref;
+}
+
 SurfaceCurve::SurfaceCurve(ManifoldSurfaceMesh* mesh, VertexPositionGeometry* geometry,
                            GeodesicAlgorithmExact* mmpSolver)
     : m_linearScaleCoefficient(1.0) {
@@ -155,6 +196,24 @@ void SurfaceCurve::transfer(SurfaceCurve* target, const SurfacePoint& targetMesh
   target->m_startPoint = targetMeshStart;
   target->m_initDir = target->localDir(targetMeshStart, targetMeshDirEndpoint);
 
+  target->m_linearScaleCoefficient = m_linearScaleCoefficient;
+
+  target->recompute();
+}
+
+void SurfaceCurve::transfer(SurfaceCurveLite* target, const SurfacePoint& targetMeshStart,
+                            const SurfacePoint& targetMeshDirEndpoint) {
+  target->m_angles.clear();
+  target->m_distances.clear();
+
+  target->m_angles.insert(target->m_angles.end(), m_angles.begin(), m_angles.end());
+  target->m_distances.insert(target->m_distances.end(), m_distances.begin(), m_distances.end());
+
+  target->m_startPoint = targetMeshStart;
+  target->m_initDir = target->localDir(targetMeshStart, targetMeshDirEndpoint);
+
+  target->m_linearScaleCoefficient = m_linearScaleCoefficient;
+
   target->recompute();
 }
 
@@ -169,6 +228,118 @@ void SurfaceCurve::translate(const SurfacePoint& newStartPoint) {
 }
 
 // Private Utils
+
+Vector2 SurfaceCurveLite::localDir(const SurfacePoint& pt1, const SurfacePoint& pt2) {
+
+  // Get the local basis vectors in global coordinates
+  Halfedge heDir;
+  Vector3 normal;
+  Vector3 globalDir =
+      pt2.interpolate(m_geometry->inputVertexPositions) - pt1.interpolate(m_geometry->inputVertexPositions);
+  globalDir /= globalDir.norm();
+  m_geometry->requireVertexNormals(); // GC doesn't seem to have immediate method for vertex normals
+  double eps = 1e-8;
+
+  if (pt1.type == SurfacePointType::Face) {
+    heDir = pt1.face.halfedge();
+    normal = m_geometry->faceNormal(pt1.face);
+  } else if (pt1.type == SurfacePointType::Edge) {
+    Edge eDir = pt1.edge;
+    heDir = eDir.halfedge();
+    Vector3 local_x = m_geometry->halfedgeVector(heDir).normalize();
+    // If segment lies on the edge
+    if (abs(1.0 - dot(local_x, globalDir)) < eps) {
+      return {1.0, 0.0};
+    }
+    // If segment lies on the edge
+    else if (abs(-1.0 - dot(local_x, globalDir)) < eps) {
+      return {-1.0, 0.0};
+    }
+    // If segment lies on a face, find which face it lies in, and get its normal
+    bool found = false;
+    if (pt2.type == SurfacePointType::Face) {
+      Face f = pt2.face;
+      normal = m_geometry->faceNormal(f);
+    } else if (pt2.type == SurfacePointType::Edge) {
+      for (Face f : eDir.adjacentFaces()) {
+        for (Edge e : f.adjacentEdges()) {
+          if (pt2.edge == e) {
+            normal = m_geometry->faceNormal(f);
+            found = true;
+            break;
+          }
+        }
+        if (found) break;
+      }
+    } else {
+      for (Face f : eDir.adjacentFaces()) {
+        for (Vertex v : f.adjacentVertices()) {
+          if (pt2.vertex == v) {
+            normal = m_geometry->faceNormal(f);
+            found = true;
+            break;
+          }
+        }
+        if (found) break;
+      }
+    }
+  } else {
+    heDir = pt1.vertex.halfedge();
+    normal = m_geometry->vertexNormals[pt1.vertex]; // angle-weighted normal
+  }
+
+  Vector3 local_x = m_geometry->halfedgeVector(heDir).normalize();
+  Vector3 local_y = cross(normal, local_x);
+
+  Vector2 dir = {dot(globalDir, local_x), dot(globalDir, local_y)}; // not necessarily unit
+  dir /= dir.norm();
+  return dir;
+}
+
+void SurfaceCurveLite::recompute() {
+  // Clear all existing point data
+  m_points.clear();
+
+  // Place first points
+  m_points.push_back(m_startPoint);
+
+  // Declare some variables
+  size_t N = m_angles.size();
+
+  SurfacePoint pathEndpoint;
+  std::complex<double> endingDir;
+  TraceGeodesicResult tracedGeodesic;
+  TraceOptions traceOptions;
+  traceOptions.includePath = true;
+
+  // Trace out from first to second point
+  m_initDir /= m_initDir.norm();
+
+  tracedGeodesic = traceGeodesicDangerously(*(m_geometry), m_startPoint,
+                                            Vector2::fromComplex(m_initDir * m_linearScaleCoefficient * m_distances[0]),
+                                            traceOptions);
+
+  pathEndpoint = tracedGeodesic.endPoint;
+  m_points.push_back(pathEndpoint);
+  endingDir = -tracedGeodesic.endingDir;
+
+  // Trace the rest
+  for (size_t i = 1; i < N - 1; i++) {
+    // Get the corresponding direction on S2
+    endingDir /= std::abs(endingDir);
+    std::complex<double> adjustedDirS2 = endingDir * m_angles[i];
+    adjustedDirS2 /= std::abs(adjustedDirS2); // make sure direction is unit
+
+    // Trace geodesic from last point and record where it ended up
+    tracedGeodesic = traceGeodesicDangerously(
+        *(m_geometry), m_points[m_points.size() - 1],
+        Vector2::fromComplex(adjustedDirS2 * m_linearScaleCoefficient * m_distances[i]), traceOptions);
+
+    pathEndpoint = tracedGeodesic.endPoint;
+    m_points.push_back(pathEndpoint);
+    endingDir = -tracedGeodesic.endingDir;
+  }
+}
 
 bool SurfaceCurve::approxEqual(const SurfacePoint& pA, const SurfacePoint& pB) {
 
