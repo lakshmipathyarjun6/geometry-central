@@ -21,6 +21,39 @@ struct PatchPointParams {
   std::complex<double> axisPointDirection; // outgoing direction from axis point
 };
 
+// Limited class which can be used (cautiously) with non-manifold meshes
+class SurfacePatchLite {
+
+public:
+  // constructors
+  SurfacePatchLite(SurfaceMesh* mesh, VertexPositionGeometry* geometry, GeodesicAlgorithmExact* mmpSolver);
+
+  void getAxis(std::vector<SurfacePoint>& axis);
+
+  void getPoints(std::vector<SurfacePoint>& points);
+
+  void getParameterizedAxis(std::vector<CurvePointParams>& parameterizedAxis);
+
+  void getParameterizedPoints(std::vector<PatchPointParams>& parameterizedPoints);
+
+  void reconstructPatch();
+
+  friend class SurfacePatch;
+
+private:
+  std::unique_ptr<SurfaceMesh> m_mesh;
+  std::unique_ptr<VertexPositionGeometry> m_geometry;
+  std::unique_ptr<GeodesicAlgorithmExact> m_mmpSolver;
+
+  SurfaceCurveLite* m_axis;
+
+  std::vector<PatchPointParams> m_parameterizedPoints;
+  std::vector<SurfacePoint> m_points;
+
+  double m_patchSpreadCoefficient;
+};
+
+// Complete class which requires manifold meshes
 class SurfacePatch {
 
 public:
@@ -59,6 +92,9 @@ public:
   void setPatchSpreadCoefficient(double patchSpreadCoefficient);
 
   void transfer(SurfacePatch* target, const SurfacePoint& targetMeshStart, const SurfacePoint& targetMeshDirEndpoint);
+
+  void transfer(SurfacePatchLite* target, const SurfacePoint& targetMeshStart,
+                const SurfacePoint& targetMeshDirEndpoint);
 
   void translate(const SurfacePoint& newStartPoint);
 

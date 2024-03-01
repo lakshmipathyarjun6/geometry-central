@@ -2,6 +2,67 @@
 
 int mod(int a, int b) { return (b + (a % b)) % b; }
 
+SurfacePatchLite::SurfacePatchLite(SurfaceMesh* mesh, VertexPositionGeometry* geometry,
+                                   GeodesicAlgorithmExact* mmpSolver)
+    : m_patchSpreadCoefficient(1.0) {
+  m_mesh.reset(mesh);
+  m_geometry.reset(geometry);
+  m_mmpSolver.reset(mmpSolver);
+
+  m_axis = new SurfaceCurveLite(mesh, geometry, mmpSolver);
+}
+
+void SurfacePatchLite::getAxis(std::vector<SurfacePoint>& axis) { m_axis->getPoints(axis); }
+
+void SurfacePatchLite::getPoints(std::vector<SurfacePoint>& points) { points = m_points; }
+
+void SurfacePatchLite::getParameterizedAxis(std::vector<CurvePointParams>& parameterizedAxis) {
+  m_axis->getParameterized(parameterizedAxis);
+}
+
+void SurfacePatchLite::getParameterizedPoints(std::vector<PatchPointParams>& parameterizedPoints) {
+  parameterizedPoints = m_parameterizedPoints;
+}
+
+void SurfacePatchLite::reconstructPatch() {
+  m_points.clear();
+
+  // Use distances/directions to reconstruct patches from sparse axis
+  SurfacePoint pathEndpoint;
+  TraceGeodesicResult tracedGeodesic;
+
+  std::vector<SurfacePoint> constructedPatch(m_parameterizedPoints.size());
+
+  for (size_t i = 0; i < m_parameterizedPoints.size(); i++) {
+    PatchPointParams p = m_parameterizedPoints[i];
+    std::complex<double> dir = p.axisPointDirection;
+    double distance = m_patchSpreadCoefficient * p.axisPointDistance;
+    SurfacePoint startPoint = m_axis->getPointAtIndex(p.closestAxisPoint);
+
+    dir /= std::abs(dir);
+
+    std::complex<double> axisBasis;
+
+    axisBasis = m_axis->getTangentAtIndex(p.closestAxisPoint);
+    axisBasis /= std::abs(axisBasis);
+
+    dir *= axisBasis;
+
+    // Handle distance = 0 edge cases
+    if (distance <= 0) {
+      pathEndpoint = startPoint;
+    } else {
+      tracedGeodesic = traceGeodesicDangerously(*(m_geometry), m_axis->getPointAtIndex(p.closestAxisPoint),
+                                                Vector2::fromComplex(distance * dir));
+      pathEndpoint = tracedGeodesic.endPoint;
+    }
+
+    constructedPatch[i] = pathEndpoint;
+  }
+
+  m_points.insert(m_points.begin(), constructedPatch.begin(), constructedPatch.end());
+}
+
 SurfacePatch::SurfacePatch(ManifoldSurfaceMesh* mesh, VertexPositionGeometry* geometry,
                            GeodesicAlgorithmExact* mmpSolver, VectorHeatMethodSolver* vectorHeatSolver)
     : m_patchSpreadCoefficient(1.0) {
@@ -230,6 +291,34 @@ void SurfacePatch::transfer(SurfacePatch* target, const SurfacePoint& targetMesh
 
   if (m_parameterizedPoints.size() > 0) {
     target->m_parameterizedPoints.clear();
+    target->m_patchSpreadCoefficient = m_patchSpreadCoefficient;
+
+    for (int i = 0; i < m_parameterizedPoints.size(); i++) {
+      PatchPointParams sourceParams = m_parameterizedPoints[i];
+
+      std::complex<double> sourceDirection = sourceParams.axisPointDirection;
+
+      std::complex<double> adjustedDir = {sourceDirection.real(), -sourceDirection.imag()};
+      PatchPointParams targetParams = {sourceParams.closestAxisPoint, sourceParams.axisPointDistance, adjustedDir};
+      target->m_parameterizedPoints.push_back(targetParams);
+    }
+
+    target->reconstructPatch();
+  }
+}
+
+void SurfacePatch::transfer(SurfacePatchLite* target, const SurfacePoint& targetMeshStart,
+                            const SurfacePoint& targetMeshDirEndpoint) {
+  // First transfer the axis
+
+  m_axis->transfer(target->m_axis, targetMeshStart, targetMeshDirEndpoint);
+
+  // Compute distances and directions on S1, then reconstruct contact on S2
+  // Reconstruct patch only if patch has been parameterized on source domain
+
+  if (m_parameterizedPoints.size() > 0) {
+    target->m_parameterizedPoints.clear();
+    target->m_patchSpreadCoefficient = m_patchSpreadCoefficient;
 
     for (int i = 0; i < m_parameterizedPoints.size(); i++) {
       PatchPointParams sourceParams = m_parameterizedPoints[i];
@@ -261,7 +350,7 @@ void SurfacePatch::setParameterizedPatch(std::vector<PatchPointParams>& paramete
                                parameterizedPatchPoints.end());
 }
 
-// Begin private utils
+// Private utils
 
 bool SurfacePatch::approxEqual(const SurfacePoint& pA, const SurfacePoint& pB) {
 
