@@ -73,8 +73,12 @@ void SurfaceCurve::createFromPoints(std::vector<SurfacePoint>& curvePoints) {
     std::vector<SurfacePoint> prunedPath = pruneApproxEqualEntries(path);
 
     denseCurve.insert(denseCurve.end(), prunedPath.begin(), prunedPath.end());
-    denseCurve.pop_back(); // to avoid double counti
+    denseCurve.pop_back(); // to avoid double counting
   }
+
+  // Add last point
+  SurfacePoint endPoint = curvePoints[1];
+  denseCurve.push_back(endPoint);
 
   m_points = denseCurve;
 
