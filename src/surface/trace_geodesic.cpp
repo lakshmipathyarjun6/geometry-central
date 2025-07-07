@@ -739,64 +739,6 @@ TraceGeodesicResult traceGeodesic(IntrinsicGeometryInterface& geom, SurfacePoint
   return result;
 }
 
-TraceGeodesicResult traceGeodesicDangerously(IntrinsicGeometryInterface& geom, SurfacePoint startP, Vector2 traceVec,
-                                             const TraceOptions& traceOptions) {
-  geom.requireVertexAngleSums();
-  geom.requireHalfedgeVectorsInFace();
-
-  // The output data
-  TraceGeodesicResult result;
-  result.hasPath = traceOptions.includePath;
-  if (traceOptions.includePath) {
-    result.pathPoints.push_back(startP);
-  }
-
-  if (TRACE_PRINT) cout << "\n>>> Trace query from " << startP << " vec = " << traceVec << endl;
-
-  // Quick out with a zero vector
-  if (traceVec.norm2() == 0) {
-    geom.unrequireVertexAngleSums();
-    geom.unrequireHalfedgeVectorsInFace();
-
-    result.endingDir = Vector2::zero();
-
-    // probably want to ensure we still return a point in a face...
-    if (traceOptions.errorOnProblem) {
-      throw std::runtime_error("zero vec passed to trace, do something good here");
-    }
-
-    return result;
-  }
-
-
-  // Trace the first point, based on what kind of input we got
-  TraceSubResult prevTraceEnd;
-  switch (startP.type) {
-  case SurfacePointType::Edge: {
-    prevTraceEnd =
-        traceGeodesic_fromEdge(geom, startP.edge, startP.tEdge, unit(traceVec), norm(traceVec), traceOptions);
-    break;
-  }
-  case SurfacePointType::Face: {
-    prevTraceEnd =
-        traceGeodesic_fromFace(geom, startP.face, startP.faceCoords, unit(traceVec), norm(traceVec), traceOptions);
-    break;
-  }
-  case SurfacePointType::Vertex: {
-    std::cout << "Sorry vertex tracing not possible if mesh has non-manifold elements" << std::endl;
-    break;
-  }
-  }
-
-  // Keep tracing through triangles until finished
-  traceGeodesic_iterative(geom, result, prevTraceEnd, traceOptions);
-
-  geom.unrequireVertexAngleSums();
-  geom.unrequireHalfedgeVectorsInFace();
-
-  return result;
-}
-
 TraceGeodesicResult traceGeodesic(IntrinsicGeometryInterface& geom, Face startFace, Vector3 startBary,
                                   Vector3 traceBaryVec, const TraceOptions& traceOptions) {
 
