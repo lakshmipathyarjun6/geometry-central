@@ -2,67 +2,6 @@
 
 int mod(int a, int b) { return (b + (a % b)) % b; }
 
-SurfacePatchLite::SurfacePatchLite(SurfaceMesh* mesh, VertexPositionGeometry* geometry,
-                                   GeodesicAlgorithmExact* mmpSolver)
-    : m_patchSpreadCoefficient(1.0) {
-  m_mesh.reset(mesh);
-  m_geometry.reset(geometry);
-  m_mmpSolver.reset(mmpSolver);
-
-  m_axis = new SurfaceCurveLite(mesh, geometry, mmpSolver);
-}
-
-void SurfacePatchLite::getAxis(std::vector<SurfacePoint>& axis) { m_axis->getPoints(axis); }
-
-void SurfacePatchLite::getPoints(std::vector<SurfacePoint>& points) { points = m_points; }
-
-void SurfacePatchLite::getParameterizedAxis(std::vector<CurvePointParams>& parameterizedAxis) {
-  m_axis->getParameterized(parameterizedAxis);
-}
-
-void SurfacePatchLite::getParameterizedPoints(std::vector<PatchPointParams>& parameterizedPoints) {
-  parameterizedPoints = m_parameterizedPoints;
-}
-
-void SurfacePatchLite::reconstructPatch() {
-  m_points.clear();
-
-  // Use distances/directions to reconstruct patches from sparse axis
-  SurfacePoint pathEndpoint;
-  TraceGeodesicResult tracedGeodesic;
-
-  std::vector<SurfacePoint> constructedPatch(m_parameterizedPoints.size());
-
-  for (size_t i = 0; i < m_parameterizedPoints.size(); i++) {
-    PatchPointParams p = m_parameterizedPoints[i];
-    std::complex<double> dir = p.axisPointDirection;
-    double distance = m_patchSpreadCoefficient * p.axisPointDistance;
-    SurfacePoint startPoint = m_axis->getPointAtIndex(p.closestAxisPoint);
-
-    dir /= std::abs(dir);
-
-    std::complex<double> axisBasis;
-
-    axisBasis = m_axis->getTangentAtIndex(p.closestAxisPoint);
-    axisBasis /= std::abs(axisBasis);
-
-    dir *= axisBasis;
-
-    // Handle distance = 0 edge cases
-    if (distance <= 0) {
-      pathEndpoint = startPoint;
-    } else {
-      tracedGeodesic = traceGeodesicDangerously(*(m_geometry), m_axis->getPointAtIndex(p.closestAxisPoint),
-                                                Vector2::fromComplex(distance * dir));
-      pathEndpoint = tracedGeodesic.endPoint;
-    }
-
-    constructedPatch[i] = pathEndpoint;
-  }
-
-  m_points.insert(m_points.begin(), constructedPatch.begin(), constructedPatch.end());
-}
-
 SurfacePatch::SurfacePatch(ManifoldSurfaceMesh* mesh, VertexPositionGeometry* geometry,
                            GeodesicAlgorithmExact* mmpSolver, VectorHeatMethodSolver* vectorHeatSolver)
     : m_patchSpreadCoefficient(1.0) {
@@ -100,12 +39,14 @@ void SurfacePatch::createDefaultAxis() {
 
   for (size_t i = 0; i < m_points.size(); i++) {
     SurfacePoint pt = m_points[i];
-    RHS[pt.vertex.getIndex()] = 1; // set
+    Vertex pt_nv = pt.nearestVertex();
+    RHS[pt_nv.getIndex()] = 1; // set
     distToSource = solver.solve(RHS);
 
     for (size_t j = 0; j < m_points.size(); j++) {
+      Vertex ptj_nv = m_points[j].nearestVertex();
       if (j != i) {
-        double dist = 1.0 / distToSource[m_points[j].vertex.getIndex()];
+        double dist = 1.0 / distToSource[ptj_nv.getIndex()];
         if (dist > maxSoFar) {
           maxSoFar = dist;
           pt1 = pt;
@@ -113,16 +54,12 @@ void SurfacePatch::createDefaultAxis() {
         }
       }
     }
-    RHS[pt.vertex.getIndex()] = 0; // unset
+    RHS[pt_nv.getIndex()] = 0; // unset
   }
 
-  std::unique_ptr<FlipEdgeNetwork> edgeNetwork;
-  edgeNetwork = FlipEdgeNetwork::constructFromDijkstraPath(*m_mesh, *m_geometry, pt1.vertex, pt2.vertex);
-  edgeNetwork->iterativeShorten();
+  std::vector<SurfacePoint> axisEndPoints{pt1, pt2};
 
-  std::vector<std::vector<SurfacePoint>> paths = edgeNetwork->getPathPolyline();
-
-  m_axis->setPoints(paths[0]);
+  m_axis->createFromPoints(axisEndPoints);
 }
 
 void SurfacePatch::deformAxis(int index, std::complex<double> newDir) { m_axis->deformAngle(index, newDir); }
@@ -281,33 +218,6 @@ void SurfacePatch::setPatchSpreadCoefficient(double patchSpreadCoefficient) {
 }
 
 void SurfacePatch::transfer(SurfacePatch* target, const SurfacePoint& targetMeshStart,
-                            const SurfacePoint& targetMeshDirEndpoint) {
-  // First transfer the axis
-
-  m_axis->transfer(target->m_axis, targetMeshStart, targetMeshDirEndpoint);
-
-  // Compute distances and directions on S1, then reconstruct contact on S2
-  // Reconstruct patch only if patch has been parameterized on source domain
-
-  if (m_parameterizedPoints.size() > 0) {
-    target->m_parameterizedPoints.clear();
-    target->m_patchSpreadCoefficient = m_patchSpreadCoefficient;
-
-    for (int i = 0; i < m_parameterizedPoints.size(); i++) {
-      PatchPointParams sourceParams = m_parameterizedPoints[i];
-
-      std::complex<double> sourceDirection = sourceParams.axisPointDirection;
-
-      std::complex<double> adjustedDir = {sourceDirection.real(), -sourceDirection.imag()};
-      PatchPointParams targetParams = {sourceParams.closestAxisPoint, sourceParams.axisPointDistance, adjustedDir};
-      target->m_parameterizedPoints.push_back(targetParams);
-    }
-
-    target->reconstructPatch();
-  }
-}
-
-void SurfacePatch::transfer(SurfacePatchLite* target, const SurfacePoint& targetMeshStart,
                             const SurfacePoint& targetMeshDirEndpoint) {
   // First transfer the axis
 

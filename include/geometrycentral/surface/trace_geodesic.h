@@ -37,12 +37,6 @@ extern const TraceOptions defaultTraceOptions;
 TraceGeodesicResult traceGeodesic(IntrinsicGeometryInterface& geom, SurfacePoint startP, Vector2 traceVec,
                                   const TraceOptions& traceOptions = defaultTraceOptions);
 
-// Trace from a surface point, and a vector in the canonical tangent space of that point (represented as a vector in
-// that tangent space). Does not check for non-manifold edges and does not support vertex starts for safety
-TraceGeodesicResult traceGeodesicDangerously(IntrinsicGeometryInterface& geom, SurfacePoint startP, Vector2 traceVec,
-                                             const TraceOptions& traceOptions = defaultTraceOptions);
-
-
 // Trace from a point in barycentric coordinates inside some face, where the trace vector is a barycentric displacement
 // (which must sum to 0)
 TraceGeodesicResult traceGeodesic(IntrinsicGeometryInterface& geom, Face startFace, Vector3 startBary,
