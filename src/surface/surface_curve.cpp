@@ -36,7 +36,7 @@ void SurfaceCurve::createFromPoints(std::vector<SurfacePoint>& curvePoints) {
   }
 
   // Add last point
-  SurfacePoint endPoint = curvePoints[1];
+  SurfacePoint endPoint = curvePoints[N - 1];
   denseCurve.push_back(endPoint);
 
   m_points = denseCurve;
